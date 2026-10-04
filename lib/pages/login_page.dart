@@ -50,8 +50,9 @@ class _LoginPageState extends State<LoginPage> {
           email: email,
           password: password,
         );
-        
+
         if (!mounted) return;
+        // ล็อกอินสำเร็จ พุ่งไปหน้าแรก (จัดการสินค้า) ทันที
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProductListPage()),
@@ -66,22 +67,34 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        // สมัครเสร็จ ล็อกอินเข้าสู่ระบบให้อัตโนมัติทันที
-        await Supabase.instance.client.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
+        // สมัครเสร็จ เคลียร์ฟอร์ม สลับกลับมาหน้าเข้าสู่ระบบ พร้อมแจ้งเตือนสีเขียว
+        setState(() {
+          isLoginTab = true;
+          _passwordController.clear();
+        });
 
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ProductListPage()),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบด้วยอีเมลของคุณ'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
+      
+      String errorMessage = 'เกิดข้อผิดพลาด: $e';
+      if (e.toString().contains('invalid_credentials')) {
+        errorMessage = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+      } else if (e.toString().contains('weak_password')) {
+        errorMessage = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษรขึ้นไป';
+      } else if (e.toString().contains('already registered')) {
+        errorMessage = 'อีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -196,7 +209,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                 ],
 
-                // ฟิลด์อีเมล / โทรศัพท์
+                // ฟิลด์อีเมล
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -223,11 +236,11 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 20),
 
-                // ฟิลด์รหัสผ่านพร้อมไอคอนรูปดวงตา
+                // ฟิลด์รหัสผ่าน
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'รหัสผ่าน',
+                    'รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)',
                     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ),
@@ -262,7 +275,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 10),
 
-                // ลืมรหัสผ่าน (เฉพาะหน้าเข้าสู่ระบบ)
                 if (isLoginTab)
                   Align(
                     alignment: Alignment.centerRight,
@@ -303,53 +315,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                   ),
                 ),
-
-                // ส่วน Social Login ด้านล่าง (เฉพาะหน้าเข้าสู่ระบบ)
-                if (isLoginTab) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    'หรือเข้าสู่ระบบผ่าน',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(color: Colors.grey[400]!),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Google',
-                            style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(color: Colors.grey[400]!),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Line',
-                            style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
