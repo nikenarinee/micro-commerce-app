@@ -10,7 +10,90 @@ class ProductListPage extends StatefulWidget {
 }
 
 class _ProductListPageState extends State<ProductListPage> {
-  final _future = Supabase.instance.client.from('products').select();
+  // เปลี่ยนเป็นฟังก์ชันดึงข้อมูล เพื่อให้เรียกโหลดใหม่ได้ง่ายหลังเพิ่มสินค้า
+ Future<List<Map<String, dynamic>>> _fetchProducts() async {
+    final response = await Supabase.instance.client.from('products').select();
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  // ฟังก์ชันเปิดหน้าต่าง (Dialog) สำหรับเพิ่มสินค้าใหม่
+  void _showAddProductDialog() {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    final descController = TextEditingController();
+    final imageController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('เพิ่มสินค้าใหม่'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'ชื่อสินค้า'),
+                ),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(labelText: 'ราคา (บาท)'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(labelText: 'รายละเอียดสินค้า'),
+                ),
+                TextField(
+                  controller: imageController,
+                  decoration: const InputDecoration(labelText: 'URL รูปภาพสินค้า'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final price = double.tryParse(priceController.text.trim()) ?? 0.0;
+                final description = descController.text.trim();
+                final imageUrl = imageController.text.trim();
+
+                if (name.isEmpty) return;
+
+                try {
+                  // บันทึกข้อมูลลง Supabase ตาราง products
+                  await Supabase.instance.client.from('products').insert({
+                    'name': name,
+                    'price': price,
+                    'description': description,
+                    'image_url': imageUrl,
+                  });
+
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  setState(() {}); // รีเฟรชหน้าจอเพื่อแสดงสินค้าใหม่
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('เพิ่มสินค้าสำเร็จ!')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              child: const Text('บันทึก'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +101,13 @@ class _ProductListPageState extends State<ProductListPage> {
       appBar: AppBar(
         title: const Text('Micro Commerce - รายการสินค้า'),
         actions: [
+          // ปุ่มเพิ่มสินค้าสำหรับเจ้าของร้าน
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showAddProductDialog,
+            tooltip: 'เพิ่มสินค้า',
+          ),
+          // ปุ่มออกจากระบบ
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -28,11 +118,11 @@ class _ProductListPageState extends State<ProductListPage> {
                 MaterialPageRoute(builder: (context) => const LoginPage()),
               );
             },
-          )
+          ),
         ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
+        future: _fetchProducts(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
