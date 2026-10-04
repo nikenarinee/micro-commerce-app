@@ -10,10 +10,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ควบคุมสถานะ Tab: true = หน้าเข้าสู่ระบบ, false = หน้าสมัครสมาชิก
   bool isLoginTab = true;
+  bool _obscurePassword = true;
 
-  // Controllers สำหรับรับค่าจากฟอร์ม
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -28,7 +27,6 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // ฟังก์ชันจัดการการเข้าสู่ระบบ หรือ สมัครสมาชิก
   Future<void> _submitAuth() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -54,35 +52,31 @@ class _LoginPageState extends State<LoginPage> {
         );
         
         if (!mounted) return;
-        // เข้าสู่ระบบสำเร็จ พาไปหน้า ProductListPage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProductListPage()),
         );
       } else {
         // --- สมัครสมาชิก ---
-        final response = await Supabase.instance.client.auth.signUp(
+        await Supabase.instance.client.auth.signUp(
           email: email,
           password: password,
-          data: {'full_name': fullName}, // เก็บชื่อ-นามสกุลเผื่อไว้ใน metadata
+          data: {'full_name': fullName},
         );
 
         if (!mounted) return;
 
-        // ถ้า Supabase ตั้งค่าเปิด Auto-confirm ไว้ จะได้ session ทันที
-        if (response.session != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ProductListPage()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')),
-          );
-          setState(() {
-            isLoginTab = true; // สลับกลับมาหน้าเข้าสู่ระบบ
-          });
-        }
+        // สมัครเสร็จ ล็อกอินเข้าสู่ระบบให้อัตโนมัติทันที
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProductListPage()),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -110,18 +104,17 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 1. หัวข้อร้าน NK Shop
                 const Text(
                   'NK Shop',
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF6200EE), // สีม่วงตามแบบ
+                    color: Color(0xFF6200EE),
                   ),
                 ),
                 const SizedBox(height: 30),
 
-                // 2. Tab สลับระหว่าง "เข้าสู่ระบบ" และ "สมัครสมาชิก"
+                // Tab สลับหน้า
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
@@ -174,13 +167,13 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 30),
 
-                // 3. ฟิลด์กรอกข้อมูล "ชื่อ - นามสกุล" (แสดงเฉพาะตอนสมัครสมาชิก)
+                // ฟิลด์ชื่อ-นามสกุล (เฉพาะตอนสมัครสมาชิก)
                 if (!isLoginTab) ...[
-                  Align(
+                  const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'ชื่อ - นามสกุล',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -203,12 +196,12 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                 ],
 
-                // 4. ฟิลด์ "อีเมล / โทรศัพท์"
-                Align(
+                // ฟิลด์อีเมล / โทรศัพท์
+                const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'อีเมล / โทรศัพท์',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -230,18 +223,18 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 20),
 
-                // 5. ฟิลด์ "รหัสผ่าน"
-                Align(
+                // ฟิลด์รหัสผ่านพร้อมไอคอนรูปดวงตา
+                const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'รหัสผ่าน',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     hintText: '••••••••',
                     filled: true,
@@ -254,18 +247,27 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: Colors.grey[400]!),
                     ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
 
-                // 6. ลืมรหัสผ่าน (แสดงเฉพาะหน้าเข้าสู่ระบบ)
+                // ลืมรหัสผ่าน (เฉพาะหน้าเข้าสู่ระบบ)
                 if (isLoginTab)
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // ฟังก์ชันเสริมสำหรับลืมรหัสผ่าน
-                      },
+                      onPressed: () {},
                       child: const Text(
                         'ลืมรหัสผ่าน ?',
                         style: TextStyle(
@@ -277,7 +279,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 const SizedBox(height: 20),
 
-                // 7. ปุ่มกดหลัก (เข้าสู่ระบบ / สมัครสมาชิก)
+                // ปุ่มกดหลัก
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -302,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
 
-                // 8. ส่วน Social Login ด้านล่าง (แสดงเฉพาะหน้าเข้าสู่ระบบ)
+                // ส่วน Social Login ด้านล่าง (เฉพาะหน้าเข้าสู่ระบบ)
                 if (isLoginTab) ...[
                   const SizedBox(height: 24),
                   Text(
@@ -314,9 +316,7 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
-                            // ปุ่ม Google Login (เชื่อมต่อภายหลังได้)
-                          },
+                          onPressed: () {},
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             side: BorderSide(color: Colors.grey[400]!),
@@ -333,9 +333,7 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
-                            // ปุ่ม Line Login (เชื่อมต่อภายหลังได้)
-                          },
+                          onPressed: () {},
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             side: BorderSide(color: Colors.grey[400]!),
