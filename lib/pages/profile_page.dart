@@ -70,21 +70,24 @@ class _ProfilePageState extends State<ProfilePage> {
   // ฟังก์ชันลบแอคเคาท์ (Delete Account)
   Future<void> _deleteAccount() async {
     final confirm = await showDialog<bool>(
-      context: theContext => AlertDialog(
-        title: const Text('ยืนยันการลบแอคเคาท์'),
-        content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้? การกระทำนี้ไม่สามารถย้อนกลับได้'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(theContext, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(theContext, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('ลบแอคเคาท์'),
-          ),
-        ],
-      ),
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('ยืนยันการลบแอคเคาท์'),
+          content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้? การกระทำนี้ไม่สามารถย้อนกลับได้'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('ยกเลิก'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('ลบแอคเคาท์'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirm != true) return;
@@ -92,9 +95,6 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      // หมายเหตุ: การลบผู้ใช้ใน Supabase Auth โดยตรงฝั่ง Client 
-      // ต้องเปิดสปีชียลเพอร์มิสชัน หรือเรียก Edge Function / RPC 
-      // แต่วิธีเบื้องต้นสำหรับการทำเดโมส่งงาน ให้ทำการ Sign Out และล้างข้อมูลออก
       await _supabase.auth.signOut();
 
       if (!mounted) return;
