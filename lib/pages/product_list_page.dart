@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
+import 'profile_page.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -129,20 +130,24 @@ class _ProductListPageState extends State<ProductListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Micro Commerce - รายการสินค้า'),
+        title: const Text('NK Shop - รายการสินค้า'),
+        backgroundColor: const Color(0xFF6200EE),
+        foregroundColor: Colors.white,
         actions: [
-          // ปุ่มเพิ่มสินค้า
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showProductDialog(),
-            tooltip: 'เพิ่มสินค้า',
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
+            },
           ),
-          // ปุ่มออกจากระบบ
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await Supabase.instance.client.auth.signOut();
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -207,7 +212,6 @@ class _ProductListPageState extends State<ProductListPage> {
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () {
-                          // แสดง Popup ยืนยันการลบ
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -221,9 +225,9 @@ class _ProductListPageState extends State<ProductListPage> {
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                   onPressed: () {
-                                    Navigator.pop(context);
-                                    _deleteProduct(product['id']);
-                                  },
+                                  Navigator.pop(context);
+                                  _deleteProduct(product['id']);
+                                },
                                   child: const Text('ลบ', style: TextStyle(color: Colors.white)),
                                 ),
                               ],
@@ -238,6 +242,13 @@ class _ProductListPageState extends State<ProductListPage> {
             },
           );
         },
+      ),
+      // เพิ่มปุ่มกดบวกสำหรับเพิ่มสินค้าใหม่
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF6200EE),
+        foregroundColor: Colors.white,
+        onPressed: () => _showProductDialog(),
+        child: const Icon(Icons.add),
       ),
     );
   }
