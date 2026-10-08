@@ -20,6 +20,12 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserProfile();
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
   // ดึงข้อมูลชื่อผู้ใช้ปัจจุบันมาแสดงในช่องกรอก
   Future<void> _loadUserProfile() async {
     final user = _supabase.auth.currentUser;
@@ -95,6 +101,10 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
 
     try {
+      // 1. เรียกใช้งาน Function ลบ User ใน Supabase ที่สร้างไว้ผ่าน SQL Editor
+      await _supabase.rpc('delete_user');
+
+      // 2. เคลียร์ Session และออกจากระบบ
       await _supabase.auth.signOut();
 
       if (!mounted) return;
@@ -105,7 +115,10 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบแอคเคาท์และออกจากระบบเรียบร้อยแล้ว')),
+        const SnackBar(
+          content: Text('ลบแอคเคาท์และออกจากระบบเรียบร้อยแล้ว'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
