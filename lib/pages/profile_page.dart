@@ -11,8 +11,13 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _oldPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
+  bool _isChangingPassword = false;
 
   @override
   void initState() {
@@ -23,23 +28,30 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
     super.dispose();
   }
 
-  // ดึงข้อมูลชื่อผู้ใช้ปัจจุบันมาแสดงในช่องกรอก
+  // ดึงข้อมูลชื่อและเบอร์โทรผู้ใช้ปัจจุบันมาแสดง
   Future<void> _loadUserProfile() async {
     final user = _supabase.auth.currentUser;
     if (user != null) {
       final fullName = user.userMetadata?['full_name'] ?? '';
+      final phone = user.userMetadata?['phone'] ?? user.phone ?? '';
       setState(() {
         _nameController.text = fullName;
+        _phoneController.text = phone;
       });
     }
   }
 
-  // ฟังก์ชันแก้ไขข้อมูลสมาชิก (Update Profile)
+  // ฟังก์ชันแก้ไขข้อมูลส่วนตัว (Update Profile & Phone)
   Future<void> _updateProfile() async {
     final newName = _nameController.text.trim();
+    final newPhone = _phoneController.text.trim();
+
     if (newName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากรอกชื่อ-นามสกุล')),
@@ -52,14 +64,17 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await _supabase.auth.updateUser(
         UserAttributes(
-          data: {'full_name': newName},
+          data: {
+            'full_name': newName,
+            'phone': newPhone,
+          },
         ),
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('อัปเดตข้อมูลสมาชิกสำเร็จ!'),
+          content: Text('อัปเดตข้อมูลส่วนตัวสำเร็จ!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -70,6 +85,43 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ฟังก์ชันเปลี่ยนรหัสผ่าน
+  Future<void> _changePassword() async {
+    final newPassword = _newPasswordController.text.trim();
+
+    if (newPassword.isEmpty || newPassword.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกรหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร')),
+      );
+      return;
+    }
+
+    setState(() => _isChangingPassword = true);
+
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+
+      _newPasswordController.clear();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('เปลี่ยนรหัสผ่านสำเร็จ!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isChangingPassword = false);
     }
   }
 
@@ -101,10 +153,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. เรียกใช้งาน Function ลบ User ใน Supabase ที่สร้างไว้ผ่าน SQL Editor
       await _supabase.rpc('delete_user');
-
-      // 2. เคลียร์ Session และออกจากระบบ
       await _supabase.auth.signOut();
 
       if (!mounted) return;
@@ -140,7 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: const Color(0xFF6200EE),
         foregroundColor: Colors.white,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Center(
           child: Container(
@@ -148,6 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // แสดงอีเมล
                 const Text(
                   'อีเมลผู้ใช้งาน:',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
@@ -157,7 +207,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   user?.email ?? '-',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+
+                // ช่องกรอกชื่อ - นามสกุล
                 const Text(
                   'ชื่อ - นามสกุล',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
@@ -172,7 +224,27 @@ class _ProfilePageState extends State<ProfilePage> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 16),
+
+                // ช่องกรอกเบอร์โทรศัพท์
+                const Text(
+                  'เบอร์โทรศัพท์',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    hintText: 'กรอกเบอร์โทรศัพท์',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ปุ่มบันทึกข้อมูลส่วนตัว
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -190,7 +262,50 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                   ),
                 ),
+                const SizedBox(height: 30),
+                const Divider(),
+                const SizedBox(height: 10),
+
+                // ส่วนเปลี่ยนรหัสผ่าน
+                const Text(
+                  'เปลี่ยนรหัสผ่านใหม่',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6200EE)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _newPasswordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    hintText: 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)',
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
                 const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _isChangingPassword ? null : _changePassword,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[800],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: _isChangingPassword
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'อัปเดตรหัสผ่าน',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+                const Divider(),
+                const SizedBox(height: 10),
+
+                // ปุ่มลบแอคเคาท์
                 SizedBox(
                   width: double.infinity,
                   height: 48,
