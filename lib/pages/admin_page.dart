@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_page.dart';
-import 'profile_page.dart';
 
-class ProductListPage extends StatefulWidget {
-  const ProductListPage({super.key});
+class AdminPage extends StatefulWidget {
+  const AdminPage({super.key});
 
   @override
-  State<ProductListPage> createState() => _ProductListPageState();
+  State<AdminPage> createState() => _AdminPageState();
 }
 
-class _ProductListPageState extends State<ProductListPage> {
-  // ฟังก์ชันดึงข้อมูลสินค้าจาก Supabase
+class _AdminPageState extends State<AdminPage> {
+  // ฟังก์ชันดึงสินค้าทั้งหมดสำหรับแอดมิน
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     final response = await Supabase.instance.client.from('products').select();
     return List<Map<String, dynamic>>.from(response);
@@ -70,7 +68,6 @@ class _ProductListPageState extends State<ProductListPage> {
 
                 try {
                   if (isEditing) {
-                    // อัปเดตข้อมูลสินค้า (Update)
                     await Supabase.instance.client
                         .from('products')
                         .update({
@@ -81,7 +78,6 @@ class _ProductListPageState extends State<ProductListPage> {
                         })
                         .eq('id', productToEdit['id']);
                   } else {
-                    // เพิ่มสินค้าใหม่ (Create)
                     await Supabase.instance.client.from('products').insert({
                       'name': name,
                       'price': price,
@@ -92,7 +88,7 @@ class _ProductListPageState extends State<ProductListPage> {
 
                   if (!mounted) return;
                   Navigator.pop(context);
-                  setState(() {}); // รีเฟรชหน้าจอ
+                  setState(() {});
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(isEditing ? 'แก้ไขสินค้าสำเร็จ!' : 'เพิ่มสินค้าสำเร็จ!')),
                   );
@@ -110,11 +106,11 @@ class _ProductListPageState extends State<ProductListPage> {
     );
   }
 
-  // ฟังก์ชันลบสินค้า (Delete)
+  // ฟังก์ชันลบสินค้า
   Future<void> _deleteProduct(int id) async {
     try {
       await Supabase.instance.client.from('products').delete().eq('id', id);
-      setState(() {}); // รีเฟรชหน้าจอ
+      setState(() {});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('ลบสินค้าสำเร็จ')),
@@ -129,33 +125,7 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('NK Shop - รายการสินค้า'),
-        backgroundColor: const Color(0xFF6200EE),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (!context.mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Admin Dashboard - จัดการสินค้า')),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchProducts(),
         builder: (context, snapshot) {
@@ -187,53 +157,18 @@ class _ProductListPageState extends State<ProductListPage> {
                               const Icon(Icons.image_not_supported),
                         )
                       : const Icon(Icons.shopping_bag, size: 50),
-                  title: Text(
-                    product['name'] ?? 'ไม่มีชื่อสินค้า',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(product['description'] ?? ''),
+                  title: Text(product['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('฿${product['price']}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '฿${product['price']}',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      // ปุ่มแก้ไขสินค้า
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () => _showProductDialog(productToEdit: product),
                       ),
-                      // ปุ่มลบสินค้า
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('ยืนยันการลบ'),
-                              content: Text('คุณต้องการลบ "${product['name']}" ใช่หรือไม่?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('ยกเลิก'),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                  onPressed: () {
-                                  Navigator.pop(context);
-                                  _deleteProduct(product['id']);
-                                },
-                                  child: const Text('ลบ', style: TextStyle(color: Colors.white)),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        onPressed: () => _deleteProduct(product['id']),
                       ),
                     ],
                   ),
@@ -243,10 +178,7 @@ class _ProductListPageState extends State<ProductListPage> {
           );
         },
       ),
-      // เพิ่มปุ่มกดบวกสำหรับเพิ่มสินค้าใหม่
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF6200EE),
-        foregroundColor: Colors.white,
         onPressed: () => _showProductDialog(),
         child: const Icon(Icons.add),
       ),

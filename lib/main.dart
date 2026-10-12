@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/login_page.dart';
+import 'pages/auth_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +21,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Micro Commerce',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const LoginPage(),
+      home: const AuthPage(),
+      debugShowCheckedModeBanner: false, // เอาป้าย DEBUG ออกเรียบร้อย
     );
   }
 }

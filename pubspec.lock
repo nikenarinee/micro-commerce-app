@@ -81,6 +81,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: f141ea4f277af142a0356955707f6556f37b03947d39d55585981a06ca437bd6
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5+5"
   crypto:
     dependency: transitive
     description:
@@ -129,6 +137,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  file_selector_linux:
+    dependency: transitive
+    description:
+      name: file_selector_linux
+      sha256: da76400e7872ce7637ffdce12749ec24169c25f6195c28372208e65a24bcd2ab
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.4+1"
+  file_selector_macos:
+    dependency: transitive
+    description:
+      name: file_selector_macos
+      sha256: d57c62362766b5e7ae739448650b66c6aab7a68ba7ecc65e04018652645ae0f4
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.5+1"
+  file_selector_platform_interface:
+    dependency: transitive
+    description:
+      name: file_selector_platform_interface
+      sha256: "35e0bd61ebcdb91a3505813b055b09b79dfdc7d0aee9c09a7ba59ae4bb13dc85"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
+  file_selector_windows:
+    dependency: transitive
+    description:
+      name: file_selector_windows
+      sha256: fbefc5fb92c6d3cbe8d284a2cd971b593bb07d2cd6da8557b81a862250b4acec
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.3+6"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -142,6 +182,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: "3854fe5e3bff0b113c658f260b90c95dea17c92db0f2addeac2e343dd9969785"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.35"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -164,10 +212,10 @@ packages:
     dependency: transitive
     description:
       name: gotrue
-      sha256: cd73a6de4198baca71341177bed233673d7965aca2a0257ab5561feb2abdaf59
+      sha256: cca816226824160e40d149816fd89740cc64dda1eaa3d9161e334330b18bba89
       url: "https://pub.dev"
     source: hosted
-    version: "2.27.2"
+    version: "2.27.3"
   gtk:
     dependency: transitive
     description:
@@ -192,6 +240,70 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  image_picker:
+    dependency: "direct main"
+    description:
+      name: image_picker
+      sha256: e71b1bd9e40124041128d60fc3034c7b1598e1bba4e570bba0c70301c817013a
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.4"
+  image_picker_android:
+    dependency: transitive
+    description:
+      name: image_picker_android
+      sha256: "8a7823d5d3e884f7780829d85d92110d072bdcd9ed48e2be158d2abe91a912d4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+25"
+  image_picker_for_web:
+    dependency: transitive
+    description:
+      name: image_picker_for_web
+      sha256: "66257a3191ab360d23a55c8241c91a6e329d31e94efa7be9cf7a212e65850214"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.1"
+  image_picker_ios:
+    dependency: transitive
+    description:
+      name: image_picker_ios
+      sha256: "4fb88d4350ffc208c2a09fc321db1f80282688716b8cfe10c8c80acc5ae8934a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+10"
+  image_picker_linux:
+    dependency: transitive
+    description:
+      name: image_picker_linux
+      sha256: "1f81c5f2046b9ab724f85523e4af65be1d47b038160a8c8deed909762c308ed4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  image_picker_macos:
+    dependency: transitive
+    description:
+      name: image_picker_macos
+      sha256: "86f0f15a309de7e1a552c12df9ce5b59fe927e71385329355aec4776c6a8ec91"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2+1"
+  image_picker_platform_interface:
+    dependency: transitive
+    description:
+      name: image_picker_platform_interface
+      sha256: "2dee4b4e3be429db71472c9c559c981498070a61af1ba82e0e4986fc5dadc042"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.2"
+  image_picker_windows:
+    dependency: transitive
+    description:
+      name: image_picker_windows
+      sha256: d248c86554a72b5495a31c56f060cf73a41c7ff541689327b1a7dbccc33adfae
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
   json_annotation:
     dependency: transitive
     description:
@@ -348,10 +460,10 @@ packages:
     dependency: transitive
     description:
       name: realtime_client
-      sha256: ff731ce21fd775e0d7accfb1eaccdcf47b687610720822ba8b9fd8f5bccb2bd9
+      sha256: "847211b3b6b24b4c2b2e6e8bb8ea0f1e1568e76684196a3e4ab2759025c622a1"
       url: "https://pub.dev"
     source: hosted
-    version: "2.13.0"
+    version: "2.13.1"
   shared_preferences:
     dependency: transitive
     description:
@@ -457,10 +569,10 @@ packages:
     dependency: transitive
     description:
       name: supabase
-      sha256: "3662449640972335e50d075a1fceb000b9217e403564305d129a4d287ff4b4c9"
+      sha256: f127a5838db931a61a9f2f82e67698c43a18a5478f0c908709ecb12e4bbe82f0
       url: "https://pub.dev"
     source: hosted
-    version: "2.16.2"
+    version: "2.16.4"
   supabase_common:
     dependency: transitive
     description:
@@ -473,10 +585,10 @@ packages:
     dependency: "direct main"
     description:
       name: supabase_flutter
-      sha256: "9698f61e83907b939fd6ee6bbf833d8456541e29cb38e9c08e52ebf88fa9faf4"
+      sha256: "78aff193bd44db529937cd1cb121ae3fcc2479a266b14e4818d68f9cd1ce03fe"
       url: "https://pub.dev"
     source: hosted
-    version: "2.18.0"
+    version: "2.18.2"
   term_glyph:
     dependency: transitive
     description:
