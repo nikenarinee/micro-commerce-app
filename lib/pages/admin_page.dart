@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_page.dart'; // นำเข้าหน้าแชท
 
@@ -42,82 +43,154 @@ class _AdminPageState extends State<AdminPage> {
     setState(() {});
   }
 
+  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage (รองรับทั้งเว็บและมือถือ)
+  Future<String?> _pickAndUploadImage(BuildContext context) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (pickedFile == null) return null;
+
+    try {
+      // แสดง Loading ระหว่างอัปโหลด
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final fileBytes = await pickedFile.readAsBytes();
+      final fileExt = pickedFile.name.split('.').last;
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      // อัปโหลดไปยัง Bucket ชื่อ 'products' แบบใช้ binary bytes
+      await _supabase.storage.from('products').uploadBinary(
+            fileName,
+            fileBytes,
+            fileOptions: FileOptions(contentType: 'image/$fileExt'),
+          );
+      
+      // ดึง Public URL
+      final publicUrl = _supabase.storage.from('products').getPublicUrl(fileName);
+
+      if (context.mounted) Navigator.pop(context); // ปิด Loading
+      return publicUrl;
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // ปิด Loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: $e')),
+        );
+      }
+      return null;
+    }
+  }
+
   // ฟอร์มสำหรับเพิ่มหรือแก้ไขสินค้า
   void _showProductDialog({Map<String, dynamic>? product}) {
     final nameController = TextEditingController(text: product?['name'] ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
-    final imageUrlController = TextEditingController(text: product?['image_url'] ?? '');
+    String imageUrl = product?['image_url'] ?? '';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(product == null ? 'เพิ่มสินค้าใหม่' : 'แก้ไขสินค้า', style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'ชื่อสินค้า',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(product == null ? 'เพิ่มสินค้าใหม่' : 'แก้ไขสินค้า', style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'ชื่อสินค้า',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'ราคา (บาท)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'ราคา (บาท)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: imageUrlController,
-                decoration: InputDecoration(
-                  labelText: 'URL รูปภาพสินค้า',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(height: 12),
+                // ส่วนอัปโหลดรูปภาพจากเครื่อง
+                GestureDetector(
+                  onTap: () async {
+                    final uploadedUrl = await _pickAndUploadImage(context);
+                    if (uploadedUrl != null) {
+                      setDialogState(() {
+                        imageUrl = uploadedUrl;
+                      });
+                    }
+                  },
+                  child: Container(
+                    height: 120,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: imageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(imageUrl, fit: BoxFit.cover),
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo, color: Colors.grey, size: 30),
+                              SizedBox(height: 4),
+                              Text('แตะเพื่ออัปโหลดรูปสินค้า', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final price = double.tryParse(priceController.text) ?? 0.0;
+
+                if (name.isEmpty) return;
+
+                if (product == null) {
+                  await _supabase.from('products').insert({
+                    'name': name,
+                    'price': price,
+                    'image_url': imageUrl,
+                  });
+                } else {
+                  await _supabase.from('products').update({
+                    'name': name,
+                    'price': price,
+                    'image_url': imageUrl,
+                  }).eq('id', product['id']);
+                }
+
+                if (!mounted) return;
+                Navigator.pop(context);
+                setState(() {});
+              },
+              child: Text(product == null ? 'เพิ่ม' : 'บันทึก', style: const TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final price = double.tryParse(priceController.text) ?? 0.0;
-              final imageUrl = imageUrlController.text.trim();
-
-              if (name.isEmpty) return;
-
-              if (product == null) {
-                await _supabase.from('products').insert({
-                  'name': name,
-                  'price': price,
-                  'image_url': imageUrl,
-                });
-              } else {
-                await _supabase.from('products').update({
-                  'name': name,
-                  'price': price,
-                  'image_url': imageUrl,
-                }).eq('id', product['id']);
-              }
-
-              if (!mounted) return;
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: Text(product == null ? 'เพิ่ม' : 'บันทึก', style: const TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
