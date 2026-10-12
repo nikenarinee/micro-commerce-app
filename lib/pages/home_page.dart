@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage> {
   String _searchQuery = ''; // ตัวแปรเก็บคำค้นหา
   String _selectedCategory = 'ทั้งหมด'; // หมวดหมู่ที่เลือกปัจจุบัน
 
-  final List<String> _categories = ['ทั้งหมด', 'เสื้อ', 'รองเท้า', 'เล็บปลอม'];
+  final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม'];
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     var query = _supabase.from('products').select();
@@ -33,11 +33,24 @@ class _HomePageState extends State<HomePage> {
     final response = await query;
     List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
 
-    // กรองหมวดหมู่จากชื่อสินค้าโดยตรง (ไม่ต้องเพิ่มคอลัมน์ใน Supabase)
+    // กรองหมวดหมู่จากชื่อสินค้าโดยตรง
     if (_selectedCategory != 'ทั้งหมด') {
       products = products.where((product) {
-        final name = (product['name'] ?? '').toString();
-        return name.contains(_selectedCategory);
+        final name = (product['name'] ?? '').toString().toLowerCase();
+
+        if (_selectedCategory == 'เสื้อผ้า' || _selectedCategory == 'เสื้อ') {
+          return name.contains('เสื้อ') || 
+                 name.contains('เดรส') || 
+                 name.contains('ชุด') || 
+                 name.contains('กางเกง') || 
+                 name.contains('กระโปรง');
+        } else if (_selectedCategory == 'รองเท้า') {
+          return name.contains('รองเท้า') || name.contains('ส้นสูง') || name.contains('ผ้าใบ');
+        } else if (_selectedCategory == 'เล็บปลอม') {
+          return name.contains('เล็บ') || name.contains('เล็บปลอม');
+        }
+
+        return name.contains(_selectedCategory.toLowerCase());
       }).toList();
     }
 
