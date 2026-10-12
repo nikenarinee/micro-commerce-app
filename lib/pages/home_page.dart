@@ -13,13 +13,22 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final _supabase = Supabase.instance.client;
+
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    final response = await Supabase.instance.client.from('products').select();
+    final response = await _supabase.from('products').select();
     return List<Map<String, dynamic>>.from(response);
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _supabase.auth.currentUser;
+    final userEmail = user?.email ?? '';
+
+    // กำหนดอีเมลแอดมินที่นี่ (สามารถเปลี่ยนเป็นอีเมลที่คุณต้องการใช้เป็นแอดมินได้เลยครับ)
+    const adminEmail = 'admin@shop.com'; 
+    final isAdmin = (userEmail == adminEmail);
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Column(
@@ -98,20 +107,21 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(builder: (_) => const ChatPage()),
                       ),
                     ),
-                    // ปุ่ม Admin
-                    IconButton(
-                      icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AdminPage()),
-                      ).then((_) => setState(() {})),
-                      tooltip: 'จัดการร้านค้า',
-                    ),
+                    // ปุ่ม Admin (จะแสดงก็ต่อเมื่อล็อกอินด้วยอีเมลแอดมินเท่านั้น)
+                    if (isAdmin)
+                      IconButton(
+                        icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AdminPage()),
+                        ).then((_) => setState(() {})),
+                        tooltip: 'จัดการร้านค้า',
+                      ),
                     // ปุ่ม Logout
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white, size: 20),
                       onPressed: () async {
-                        await Supabase.instance.client.auth.signOut();
+                        await _supabase.auth.signOut();
                         if (!mounted) return;
                         Navigator.pushReplacement(
                           context,
@@ -129,7 +139,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween, // แก้ไขตรงนี้
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Row(
                         children: [
@@ -226,7 +236,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // แก้ไขตรงนี้
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       '฿${product['price']}',
