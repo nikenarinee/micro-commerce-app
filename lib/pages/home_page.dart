@@ -18,13 +18,21 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _supabase = Supabase.instance.client;
   String _searchQuery = ''; // ตัวแปรเก็บคำค้นหา
+  String _selectedCategory = 'ทั้งหมด'; // หมวดหมู่ที่เลือกปัจจุบัน
+
+  final List<String> _categories = ['ทั้งหมด', 'เสื้อ', 'รองเท้า', 'เล็บปลอม'];
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    var query = _supabase.from('products').select();
+    dynamic query = _supabase.from('products').select();
     
-    // ถ้ามีการพิมพ์ค้นหา ให้กรองชื่อสินค้าด้วย ilike (ไม่สนตัวพิมพ์เล็ก-ใหญ่)
+    // กรองตามหมวดหมู่ ถ้าไม่ใช่ 'ทั้งหมด'
+    if (_selectedCategory != 'ทั้งหมด') {
+      query = query.eq('category', _selectedCategory);
+    }
+    
+    // ถ้ามีการพิมพ์ค้นหา ให้กรองชื่อสินค้าด้วย ilike
     if (_searchQuery.isNotEmpty) {
-      query = _supabase.from('products').select().ilike('name', '%$_searchQuery%');
+      query = query.ilike('name', '%$_searchQuery%');
     }
 
     final response = await query;
@@ -183,6 +191,40 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
+          
+          // แถบเลือกหมวดหมู่สินค้า (Category Chips)
+          Container(
+            height: 50,
+            color: Colors.white,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = _selectedCategory == category;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    label: Text(category),
+                    selected: isSelected,
+                    selectedColor: const Color(0xFF7C3AED),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    backgroundColor: Colors.grey[200],
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedCategory = category;
+                      });
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
@@ -195,7 +237,7 @@ class _HomePageState extends State<HomePage> {
                 }
                 final products = snapshot.data;
                 if (products == null || products.isEmpty) {
-                  return const Center(child: Text('ไม่พบสินค้าที่ค้นหา', style: TextStyle(color: Colors.grey)));
+                  return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้', style: TextStyle(color: Colors.grey)));
                 }
 
                 return GridView.builder(

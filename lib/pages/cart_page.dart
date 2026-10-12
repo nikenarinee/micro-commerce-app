@@ -16,7 +16,6 @@ class _CartPageState extends State<CartPage> {
   double get _totalPrice {
     double total = 0;
     for (var item in _cartItems) {
-      // แปลง price และ quantity ให้เป็นตัวเลขชัวร์ๆ ป้องกัน Error ค่านิรนาม
       double price = double.tryParse(item['price'].toString()) ?? 0;
       int qty = int.tryParse(item['quantity'].toString()) ?? 1;
       total += (price * qty);
@@ -99,6 +98,12 @@ class _CartPageState extends State<CartPage> {
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // แสดงข้อมูลไซส์และสีที่ผู้ใช้เลือก
+                                  Text(
+                                    'ไซส์: ${item['size'] ?? '-'} | สี: ${item['color'] ?? '-'}',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
