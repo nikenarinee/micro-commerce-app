@@ -23,12 +23,7 @@ class _HomePageState extends State<HomePage> {
   final List<String> _categories = ['ทั้งหมด', 'เสื้อ', 'รองเท้า', 'เล็บปลอม'];
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    dynamic query = _supabase.from('products').select();
-    
-    // กรองตามหมวดหมู่ ถ้าไม่ใช่ 'ทั้งหมด'
-    if (_selectedCategory != 'ทั้งหมด') {
-      query = query.eq('category', _selectedCategory);
-    }
+    var query = _supabase.from('products').select();
     
     // ถ้ามีการพิมพ์ค้นหา ให้กรองชื่อสินค้าด้วย ilike
     if (_searchQuery.isNotEmpty) {
@@ -36,7 +31,17 @@ class _HomePageState extends State<HomePage> {
     }
 
     final response = await query;
-    return List<Map<String, dynamic>>.from(response);
+    List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
+    // กรองหมวดหมู่จากชื่อสินค้าโดยตรง (ไม่ต้องเพิ่มคอลัมน์ใน Supabase)
+    if (_selectedCategory != 'ทั้งหมด') {
+      products = products.where((product) {
+        final name = (product['name'] ?? '').toString();
+        return name.contains(_selectedCategory);
+      }).toList();
+    }
+
+    return products;
   }
 
   @override
