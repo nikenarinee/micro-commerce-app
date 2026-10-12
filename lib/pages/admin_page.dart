@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'chat_page.dart'; // นำเข้าหน้าแชท
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -131,6 +132,15 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
+          // ปุ่มลัดเปิดหน้าแชทสำหรับแอดมิน
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF7C3AED)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChatPage()),
+            ),
+            tooltip: 'แชทกับลูกค้า',
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
             child: Container(
@@ -195,12 +205,63 @@ class _AdminPageState extends State<AdminPage> {
               ],
             ),
             const SizedBox(height: 24),
+
+            // แถบเมนูลัดเข้าแชทด่วนในหน้าแดชบอร์ด
+            InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChatPage()),
+              ),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7C3AED).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.forum_rounded, color: Colors.white, size: 28),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ข้อความแชทจากลูกค้า',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'คลิกเพื่อเปิดกล่องข้อความและพูดคุยกับลูกค้า',
+                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // หัวข้อจัดการสต็อกสินค้า
             const Text(
               'จัดการสต็อกสินค้า',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
             const SizedBox(height: 12),
+
             // รายการสินค้าจริงจาก Supabase พร้อมปุ่มแก้ไขและลบ
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
@@ -290,6 +351,7 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 30),
+
             // ปุ่มเพิ่มสินค้าใหม่เต็มจอ
             SizedBox(
               width: double.infinity,

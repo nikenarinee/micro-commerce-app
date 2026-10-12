@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_page.dart';
+import 'admin_page.dart'; // เพิ่ม import หน้า Admin
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -48,10 +49,26 @@ class _AuthPageState extends State<AuthPage> {
       }
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+
+      // กำหนดอีเมลแอดมินของคุณตรงนี้ (สามารถเปลี่ยนเป็นเมลจริงที่ต้องการใช้ได้เลยครับ)
+      const adminEmail = 'admin@shop.com';
+      
+      // ตรวจสอบว่าผู้ใช้ที่ล็อกอินเป็นแอดมินหรือไม่
+      final currentUserEmail = Supabase.instance.client.auth.currentUser?.email;
+
+      if (currentUserEmail == adminEmail) {
+        // ถ้าเป็นเมลแอดมิน ให้พุ่งตรงไปหน้า Admin ทันที
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminPage()),
+        );
+      } else {
+        // ถ้าเป็นลูกค้าทั่วไป ให้ไปหน้า Home ปกติ
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
