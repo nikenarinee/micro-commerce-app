@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // ใช้แสดงไฟล์ SVG
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -10,6 +13,55 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _supabase = Supabase.instance.client;
+  String? slipUrl;
+
+  // ฟังก์ชันอัปโหลดสลิปโอนเงิน
+  Future<void> _pickAndUploadSlip(BuildContext context) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (pickedFile == null) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final fileBytes = await pickedFile.readAsBytes();
+      final fileExt = pickedFile.name.split('.').last;
+      final fileName = 'slip_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      await _supabase.storage.from('product-images').uploadBinary(
+            fileName,
+            fileBytes,
+            fileOptions: FileOptions(contentType: 'image/$fileExt'),
+          );
+      
+      final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
+
+      setState(() {
+        slipUrl = publicUrl;
+      });
+
+      if (context.mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('อัปโหลดสลิปสำเร็จ!')),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('อัปโหลดสลิปไม่สำเร็จ: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,21 +123,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    height: 140,
-                    width: 140,
+                    height: 150,
+                    width: 150,
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.grey.shade300),
                     ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.qr_code, size: 60, color: Colors.grey),
-                          SizedBox(height: 4),
-                          Text('QR Code พร้อมเพย์', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
+                    child: Center(
+                      child: SvgPicture.network(
+                        'https://yqewlavvffogrreyymgo.supabase.co/storage/v1/object/public/product-images/qr.svg',
+                        width: 130,
+                        height: 130,
+                        placeholderBuilder: (context) => const CircularProgressIndicator(),
                       ),
                     ),
                   ),
@@ -95,23 +145,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const SizedBox(height: 24),
             const Text('แนบหลักฐานการชำระเงิน (สลิปโอนเงิน)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade400, width: 1),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, size: 30, color: Colors.grey),
-                    SizedBox(height: 4),
-                    Text('คลิกเพื่ออัปโหลดรูปสลิปโอนเงิน', style: TextStyle(color: Colors.grey)),
-                  ],
+            GestureDetector(
+              onTap: () => _pickAndUploadSlip(context),
+              child: Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade400, width: 1),
                 ),
+                child: slipUrl != null && slipUrl!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(slipUrl!, fit: BoxFit.cover),
+                      )
+                    : const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cloud_upload_outlined, size: 30, color: Colors.grey),
+                          SizedBox(height: 4),
+                          Text('คลิกเพื่ออัปโหลดรูปสลิปโอนเงิน', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(height: 30),
@@ -132,9 +188,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       actions: [
                         TextButton(
                           onPressed: () {
-                            Navigator.pop(context); // ปิด Dialog
-                            Navigator.pop(context); // กลับหน้าตะกร้า
-                            Navigator.pop(context); // กลับหน้าแรก
+                            Navigator.pop(context);
+                            Navigator.pop(context);
+                            Navigator.pop(context);
                           },
                           child: const Text('ตกลง', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
                         ),

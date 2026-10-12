@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'cart_page.dart'; // เดี๋ยวเราจะสร้างตามมาครับ
+import 'cart_page.dart';
+import 'cart_service.dart'; // 1. นำเข้า CartService
 
 class ProductDetailPage extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -152,8 +153,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
+                      // 2. บันทึกสินค้าพร้อมไซส์ สี และจำนวนลงตะกร้า
+                      final cartItem = Map<String, dynamic>.from(widget.product);
+                      cartItem['size'] = _selectedSize;
+                      cartItem['color'] = _selectedColor;
+                      cartItem['quantity'] = _quantity;
+
+                      CartService().addItemWithDetails(cartItem, _selectedSize, _selectedColor, _quantity);
+
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('เพิ่มลงตะกร้าสินค้าแล้ว!')),
+                        SnackBar(content: Text('เพิ่ม "${product['name']}" ลงตะกร้าแล้ว!')),
                       );
                     },
                     child: const Text('เพิ่มลงตะกร้า', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 16)),
@@ -168,7 +177,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      // กดซื้อทันที พาไปหน้าตะกร้าหรือชำระเงิน
+                      // กดซื้อทันที: บันทึกลงตะกร้าก่อนแล้วพาไปหน้าตะกร้า
+                      final cartItem = Map<String, dynamic>.from(widget.product);
+                      cartItem['size'] = _selectedSize;
+                      cartItem['color'] = _selectedColor;
+                      cartItem['quantity'] = _quantity;
+
+                      CartService().addItemWithDetails(cartItem, _selectedSize, _selectedColor, _quantity);
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const CartPage()),

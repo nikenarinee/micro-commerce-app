@@ -6,6 +6,7 @@ import 'auth_page.dart';
 import 'profile_page.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
+import 'cart_service.dart'; // นำเข้า CartService เพื่อใช้งานตะกร้า
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -100,7 +101,7 @@ class _HomePageState extends State<HomePage> {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const CartPage()),
-                          ),
+                          ).then((_) => setState(() {})), // พอกลับมาจากหน้าตะกร้าให้อัปเดตจอ
                         ),
                         Positioned(
                           right: 6,
@@ -111,7 +112,10 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.red,
                               shape: BoxShape.circle,
                             ),
-                            child: const Text('2', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                            child: Text(
+                              '${CartService().items.length}', // แสดงจำนวนสินค้าในตะกร้าจริง
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
@@ -209,7 +213,7 @@ class _HomePageState extends State<HomePage> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
-                      ),
+                      ).then((_) => setState(() {})),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         decoration: BoxDecoration(
@@ -269,13 +273,27 @@ class _HomePageState extends State<HomePage> {
                                           fontSize: 16,
                                         ),
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF7C3AED),
-                                          borderRadius: BorderRadius.circular(8),
+                                      // ปุ่มกดเพิ่มสินค้าลงตะกร้า (ทำงานจริง)
+                                      InkWell(
+                                        onTap: () {
+                                          CartService().addItem(product);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('เพิ่ม "${product['name']}" ลงตะกร้าแล้ว'),
+                                              duration: const Duration(seconds: 1),
+                                            ),
+                                          );
+                                          setState(() {}); // อัปเดตหน้าจอเพื่อเปลี่ยนตัวเลขบนไอคอนตะกร้า
+                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF7C3AED),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(Icons.add, color: Colors.white, size: 16),
                                         ),
-                                        child: const Icon(Icons.add, color: Colors.white, size: 16),
                                       ),
                                     ],
                                   ),

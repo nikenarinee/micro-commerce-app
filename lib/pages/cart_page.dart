@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'checkout_page.dart'; // เดี๋ยวเราจะสร้างหน้านี้ต่อครับ
+import 'checkout_page.dart';
+import 'cart_service.dart'; // นำเข้า CartService ตัวกลางของเรา
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -9,30 +10,16 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
-  // จำลองรายการสินค้าในตะกร้า (ในอนาคตสามารถเชื่อมฐานข้อมูลหรือ state management ได้)
-  final List<Map<String, dynamic>> _cartItems = [
-    {
-      'name': 'เสื้อยืดวินเทจ',
-      'price': 290,
-      'size': 'M',
-      'color': 'ดำ',
-      'quantity': 1,
-      'image_url': '',
-    },
-    {
-      'name': 'เสื้อยืดลายพิเศษ',
-      'price': 250,
-      'size': 'L',
-      'color': 'ขาว',
-      'quantity': 2,
-      'image_url': '',
-    },
-  ];
+  // ดึงรายการสินค้ามาจาก CartService โดยตรง
+  List<Map<String, dynamic>> get _cartItems => CartService().items;
 
   double get _totalPrice {
     double total = 0;
     for (var item in _cartItems) {
-      total += (item['price'] * item['quantity']);
+      // แปลง price และ quantity ให้เป็นตัวเลขชัวร์ๆ ป้องกัน Error ค่านิรนาม
+      double price = double.tryParse(item['price'].toString()) ?? 0;
+      int qty = int.tryParse(item['quantity'].toString()) ?? 1;
+      total += (price * qty);
     }
     return total;
   }
@@ -82,6 +69,7 @@ class _CartPageState extends State<CartPage> {
                         ),
                         child: Row(
                           children: [
+                            // แสดงรูปสินค้าจาก Supabase ถ้ามี
                             Container(
                               width: 60,
                               height: 60,
@@ -89,7 +77,17 @@ class _CartPageState extends State<CartPage> {
                                 color: Colors.grey[200],
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.shopping_bag, color: Colors.grey),
+                              child: item['image_url'] != null && item['image_url'].toString().isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        item['image_url'],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.shopping_bag, color: Colors.grey),
+                                      ),
+                                    )
+                                  : const Icon(Icons.shopping_bag, color: Colors.grey),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -97,13 +95,10 @@ class _CartPageState extends State<CartPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item['name'],
+                                    item['name'] ?? 'ไม่มีชื่อสินค้า',
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'ไซส์: ${item['size']} | สี: ${item['color']}',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -120,7 +115,9 @@ class _CartPageState extends State<CartPage> {
                                     InkWell(
                                       onTap: () {
                                         setState(() {
-                                          if (item['quantity'] > 1) item['quantity']--;
+                                          if (item['quantity'] > 1) {
+                                            item['quantity']--;
+                                          }
                                         });
                                       },
                                       child: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.grey),
@@ -190,7 +187,7 @@ class _CartPageState extends State<CartPage> {
                             backgroundColor: const Color(0xFF7C3AED),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          onPressed: () {
+                          onPressed: _cartItems.isEmpty ? null : () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const CheckoutPage()),

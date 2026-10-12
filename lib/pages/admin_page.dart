@@ -19,8 +19,8 @@ class _AdminPageState extends State<AdminPage> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // ฟังก์ชันลบสินค้า
-  Future<void> _deleteProduct(String id) async {
+  // ฟังก์ชันลบสินค้า (รองรับ id แบบตัวเลข int8)
+  Future<void> _deleteProduct(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -39,11 +39,19 @@ class _AdminPageState extends State<AdminPage> {
 
     if (confirm != true) return;
 
-    await _supabase.from('products').delete().eq('id', id);
-    setState(() {});
+    try {
+      await _supabase.from('products').delete().eq('id', id);
+      setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบสินค้าไม่สำเร็จ: $e')),
+        );
+      }
+    }
   }
 
-  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage (รองรับทั้งเว็บและมือถือ)
+  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage (ใช้ bucket 'product-images')
   Future<String?> _pickAndUploadImage(BuildContext context) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
@@ -65,15 +73,15 @@ class _AdminPageState extends State<AdminPage> {
       final fileExt = pickedFile.name.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      // อัปโหลดไปยัง Bucket ชื่อ 'products' แบบใช้ binary bytes
-      await _supabase.storage.from('products').uploadBinary(
+      // อัปโหลดไปยัง Bucket ชื่อ 'product-images'
+      await _supabase.storage.from('product-images').uploadBinary(
             fileName,
             fileBytes,
             fileOptions: FileOptions(contentType: 'image/$fileExt'),
           );
       
       // ดึง Public URL
-      final publicUrl = _supabase.storage.from('products').getPublicUrl(fileName);
+      final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
 
       if (context.mounted) Navigator.pop(context); // ปิด Loading
       return publicUrl;
