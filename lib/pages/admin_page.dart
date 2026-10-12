@@ -74,6 +74,7 @@ class _AdminPageState extends State<AdminPage> {
 
     try {
       await _supabase.from('products').delete().eq('id', id);
+      if (!mounted) return;
       setState(() {});
     } catch (e) {
       if (mounted) {
@@ -85,7 +86,7 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage
-  Future<String?> _pickAndUploadImage(BuildContext context) async {
+  Future<String?> _pickAndUploadImage(BuildContext dialogContext) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
@@ -95,8 +96,9 @@ class _AdminPageState extends State<AdminPage> {
     if (pickedFile == null) return null;
 
     try {
+      if (!mounted) return null;
       showDialog(
-        context: context,
+        context: dialogContext,
         barrierDismissible: false,
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
@@ -113,11 +115,11 @@ class _AdminPageState extends State<AdminPage> {
 
       final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
 
-      if (context.mounted) Navigator.pop(context);
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
       return publicUrl;
     } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context);
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: $e')),
         );
@@ -134,7 +136,7 @@ class _AdminPageState extends State<AdminPage> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(product == null ? 'เพิ่มสินค้าใหม่' : 'แก้ไขสินค้า', style: const TextStyle(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
@@ -160,7 +162,7 @@ class _AdminPageState extends State<AdminPage> {
                 const SizedBox(height: 12),
                 GestureDetector(
                   onTap: () async {
-                    final uploadedUrl = await _pickAndUploadImage(context);
+                    final uploadedUrl = await _pickAndUploadImage(dialogContext);
                     if (uploadedUrl != null) {
                       setDialogState(() {
                         imageUrl = uploadedUrl;
@@ -195,7 +197,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ยกเลิก'),
             ),
             ElevatedButton(
@@ -221,7 +223,7 @@ class _AdminPageState extends State<AdminPage> {
                 }
 
                 if (!mounted) return;
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 setState(() {});
               },
               child: Text(product == null ? 'เพิ่ม' : 'บันทึก', style: const TextStyle(color: Colors.white)),
