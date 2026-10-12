@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_page.dart';
 import 'chat_page.dart';
 import 'auth_page.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -59,6 +60,16 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // ปุ่มโปรไฟล์ (รูปคน)
+                    IconButton(
+                      icon: const Icon(Icons.person, color: Colors.white),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      ),
+                      tooltip: 'โปรไฟล์ของฉัน',
+                    ),
+                    // ตะกร้าสินค้า
                     Stack(
                       children: [
                         IconButton(
@@ -79,6 +90,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
+                    // ปุ่มแชท
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF67E8F9)),
                       onPressed: () => Navigator.push(
@@ -86,6 +98,7 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(builder: (_) => const ChatPage()),
                       ),
                     ),
+                    // ปุ่ม Admin
                     IconButton(
                       icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
                       onPressed: () => Navigator.push(
@@ -94,6 +107,7 @@ class _HomePageState extends State<HomePage> {
                       ).then((_) => setState(() {})),
                       tooltip: 'จัดการร้านค้า',
                     ),
+                    // ปุ่ม Logout
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white, size: 20),
                       onPressed: () async {
@@ -115,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween, // แก้ไขตรงนี้
                     children: [
                       const Row(
                         children: [
@@ -212,7 +226,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // แก้ไขตรงนี้
                                   children: [
                                     Text(
                                       '฿${product['price']}',

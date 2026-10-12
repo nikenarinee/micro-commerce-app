@@ -110,7 +110,7 @@ class _ProfilePageState extends State<ProfilePage> {
         await _supabase.from('profiles').delete().eq('id', user.id);
       }
 
-      // ออกจากระบบ (หมายเหตุ: การลบ Auth User โดยตรงจาก Client-side ขึ้นอยู่กับการตั้งค่า Function บน Supabase แต่เบื้องต้นทำการ SignOut และเคลียร์ข้อมูล)
+      // ออกจากระบบ
       await _supabase.auth.signOut();
 
       if (!mounted) return;
@@ -151,7 +151,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text('ชื่อ - นามสกุล', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black8Token ?? Colors.black87)),
+                  const Text('ชื่อ - นามสกุล', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _nameController,
