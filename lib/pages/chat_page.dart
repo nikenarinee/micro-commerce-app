@@ -17,6 +17,15 @@ class _ChatPageState extends State<ChatPage> {
   final ImagePicker _picker = ImagePicker();
   final ScrollController _scrollController = ScrollController();
 
+  // ฟังก์ชันดึงข้อความทั้งหมดจาก Supabase
+  Future<List<Map<String, dynamic>>> _fetchMessages() async {
+    final response = await _supabase
+        .from('messages')
+        .select()
+        .order('created_at', ascending: true);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   // ฟังก์ชันส่งข้อความเข้า Supabase
   Future<void> _sendMessage({String? imageUrl, String? textContent}) async {
     final text = textContent ?? _messageController.text.trim();
@@ -36,14 +45,18 @@ class _ChatPageState extends State<ChatPage> {
         _messageController.clear();
       }
 
+      setState(() {}); // รีเฟรชหน้าจอเพื่อดึงข้อความใหม่
+
       // เลื่อนหน้าจอลงล่างสุดอัตโนมัติ
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,7 +82,6 @@ class _ChatPageState extends State<ChatPage> {
       final fileExt = image.name.split('.').last;
       final fileName = 'chat_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      // อัปโหลดรูปไปที่ Bucket 'product-images'
       await _supabase.storage.from('product-images').uploadBinary(
         fileName,
         fileBytes,
@@ -101,16 +113,20 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
+            onPressed: () => setState(() {}),
+            tooltip: 'รีเฟรชข้อความ',
+          ),
+        ],
       ),
       backgroundColor: Colors.grey[100],
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabase
-                  .from('messages')
-                  .stream(primaryKey: ['id'])
-                  .order('created_at', ascending: true),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _fetchMessages(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
