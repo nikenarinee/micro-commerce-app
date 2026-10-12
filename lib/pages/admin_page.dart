@@ -13,13 +13,46 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   final _supabase = Supabase.instance.client;
 
+  // ฟังก์ชันดึงสรุปยอดขายและจำนวนออเดอร์ของวันนี้จาก Supabase
+  Future<Map<String, dynamic>> _fetchTodaySalesAndOrders() async {
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day).toIso8601String();
+
+      // ดึงออเดอร์เฉพาะที่เกิดหลังจากเริ่มต้นวันนี้
+      final response = await _supabase
+          .from('orders')
+          .select()
+          .gte('created_at', startOfDay);
+
+      final orders = List<Map<String, dynamic>>.from(response);
+
+      double totalSales = 0.0;
+      for (var order in orders) {
+        final price = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0.0;
+        totalSales += price;
+      }
+
+      return {
+        'totalSales': totalSales,
+        'orderCount': orders.length,
+      };
+    } catch (e) {
+      // หากยังไม่มีตาราง orders ให้คืนค่า default เป็น 0
+      return {
+        'totalSales': 0.0,
+        'orderCount': 0,
+      };
+    }
+  }
+
   // ฟังก์ชันดึงรายการสินค้าจาก Supabase
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     final response = await _supabase.from('products').select();
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // ฟังก์ชันลบสินค้า (รองรับ id แบบตัวเลข int8)
+  // ฟังก์ชันลบสินค้า
   Future<void> _deleteProduct(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -51,7 +84,7 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage (ใช้ bucket 'product-images')
+  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage
   Future<String?> _pickAndUploadImage(BuildContext context) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
@@ -62,7 +95,6 @@ class _AdminPageState extends State<AdminPage> {
     if (pickedFile == null) return null;
 
     try {
-      // แสดง Loading ระหว่างอัปโหลด
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -73,21 +105,19 @@ class _AdminPageState extends State<AdminPage> {
       final fileExt = pickedFile.name.split('.').last;
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      // อัปโหลดไปยัง Bucket ชื่อ 'product-images'
       await _supabase.storage.from('product-images').uploadBinary(
             fileName,
             fileBytes,
             fileOptions: FileOptions(contentType: 'image/$fileExt'),
           );
-      
-      // ดึง Public URL
+
       final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
 
-      if (context.mounted) Navigator.pop(context); // ปิด Loading
+      if (context.mounted) Navigator.pop(context);
       return publicUrl;
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context); // ปิด Loading
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ: $e')),
         );
@@ -128,7 +158,6 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // ส่วนอัปโหลดรูปภาพจากเครื่อง
                 GestureDetector(
                   onTap: () async {
                     final uploadedUrl = await _pickAndUploadImage(context);
@@ -213,7 +242,11 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          // ปุ่มลัดเปิดหน้าแชทสำหรับแอดมิน
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
+            onPressed: () => setState(() {}),
+            tooltip: 'รีเฟรชข้อมูล',
+          ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -245,49 +278,63 @@ class _AdminPageState extends State<AdminPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ส่วนแสดงยอดขายและออเดอร์ใหม่
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
+            // ส่วนแสดงยอดขายและออเดอร์ใหม่ดึงข้อมูลสดจาก Supabase
+            FutureBuilder<Map<String, dynamic>>(
+              future: _fetchTodaySalesAndOrders(),
+              builder: (context, snapshot) {
+                final sales = snapshot.data?['totalSales'] ?? 0.0;
+                final orders = snapshot.data?['orderCount'] ?? 0;
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('ยอดขายวันนี้', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text(
+                              '฿ ${sales.toStringAsFixed(0)} -',
+                              style: const TextStyle(color: Color(0xFF16A34A), fontSize: 20, fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ยอดขายวันนี้', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 8),
-                        Text('฿ 3,400 -', style: TextStyle(color: Color(0xFF16A34A), fontSize: 20, fontWeight: FontWeight.w900)),
-                      ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('ออเดอร์ใหม่', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text(
+                              '$orders รายการ',
+                              style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 20, fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ออเดอร์ใหม่', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 8),
-                        Text('5 รายการ', style: TextStyle(color: Color(0xFF7C3AED), fontSize: 20, fontWeight: FontWeight.w900)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 24),
 
-            // แถบเมนูลัดเข้าแชทด่วนในหน้าแดชบอร์ด
+            // แถบเมนูลัดเข้าแชท
             InkWell(
               onTap: () => Navigator.push(
                 context,
@@ -343,7 +390,7 @@ class _AdminPageState extends State<AdminPage> {
             ),
             const SizedBox(height: 12),
 
-            // รายการสินค้าจริงจาก Supabase พร้อมปุ่มแก้ไขและลบ
+            // รายการสินค้าจริงจาก Supabase
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
               builder: (context, snapshot) {
@@ -433,7 +480,7 @@ class _AdminPageState extends State<AdminPage> {
             ),
             const SizedBox(height: 30),
 
-            // ปุ่มเพิ่มสินค้าใหม่เต็มจอ
+            // ปุ่มเพิ่มสินค้าใหม่
             SizedBox(
               width: double.infinity,
               height: 50,
