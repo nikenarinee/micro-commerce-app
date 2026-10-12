@@ -20,128 +20,230 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('หน้าแรก - ร้านค้า'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chat),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChatPage()),
-            ),
-            tooltip: 'แชทกับร้าน',
-          ),
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminPage()),
-            ).then((_) => setState(() {})), // พอกลับมาจากหน้าแอดมิน ให้รีเฟรชหน้าโฮมทันที
-            tooltip: 'จัดการร้านค้า (Admin)',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const AuthPage()),
-              );
-            },
-            tooltip: 'ออกจากระบบ',
-          ),
-        ],
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _fetchProducts(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
-          }
-          final products = snapshot.data;
-          if (products == null || products.isEmpty) {
-            return const Center(
-              child: Text(
-                'ยินดีต้อนรับสู่หน้าโฮม!\n(ยังไม่มีสินค้าในระบบ)',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            );
-          }
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: Colors.grey[100],
+      body: Column(
+        children: [
+          Container(
+            color: const Color(0xFF7C3AED),
+            padding: const EdgeInsets.only(top: 45, left: 16, right: 16, bottom: 16),
+            child: Column(
+              children: [
+                Row(
                   children: [
                     Expanded(
                       child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12),
-                          ),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: product['image_url'] != null &&
-                                product['image_url'].toString().isNotEmpty
-                            ? Image.network(
-                                product['image_url'],
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Center(child: Icon(Icons.image_not_supported)),
-                              )
-                            : const Center(
-                                child: Icon(Icons.shopping_bag, size: 50, color: Colors.grey),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'ค้นหาสินค้า...',
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.camera_alt, color: Colors.grey, size: 20),
+                              onPressed: () {},
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
+                    const SizedBox(width: 8),
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                          onPressed: () {},
+                        ),
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Text('2', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF67E8F9)),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ChatPage()),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AdminPage()),
+                      ).then((_) => setState(() {})),
+                      tooltip: 'จัดการร้านค้า',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+                      onPressed: () async {
+                        await Supabase.instance.client.auth.signOut();
+                        if (!mounted) return;
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AuthPage()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.qr_code_scanner, color: Color(0xFF7C3AED)),
+                          SizedBox(width: 8),
+                          Text('โค้ดส่วนลด 50%', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEDE9FE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('เก็บโค้ด', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _fetchProducts(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
+                }
+                final products = snapshot.data;
+                if (products == null || products.isEmpty) {
+                  return const Center(child: Text('ยังไม่มีสินค้าในระบบ', style: TextStyle(color: Colors.grey)));
+                }
+
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final product = products[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            product['name'] ?? 'ไม่มีชื่อสินค้า',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              ),
+                              child: product['image_url'] != null && product['image_url'].toString().isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                      child: Image.network(
+                                        product['image_url'],
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
+                                      ),
+                                    )
+                                  : const Center(child: Icon(Icons.shopping_bag, size: 40, color: Colors.grey)),
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '฿${product['price']}',
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.w600,
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product['name'] ?? 'ไม่มีชื่อสินค้า',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '฿${product['price']}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF059669),
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.add, color: Colors.white, size: 16),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
