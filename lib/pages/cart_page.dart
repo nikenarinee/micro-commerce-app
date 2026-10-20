@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'checkout_page.dart';
-import 'cart_service.dart'; // นำเข้า CartService ตัวกลางของเรา
+import 'cart_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -13,25 +13,49 @@ class _CartPageState extends State<CartPage> {
   // ดึงรายการสินค้ามาจาก CartService โดยตรง
   List<Map<String, dynamic>> get _cartItems => CartService().items;
 
-  // คำนวณราคารวมสินค้าทั้งหมด (ยังไม่หักส่วนลด)
+  // เซ็ตสำหรับเก็บ index ของสินค้าที่ถูกเลือกชำระเงิน
+  final Set<int> _selectedIndices = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // เริ่มต้นให้เลือกสินค้าทุกชิ้นในตะกร้าโดยอัตโนมัติ
+    _selectAllItems();
+  }
+
+  void _selectAllItems() {
+    setState(() {
+      _selectedIndices.clear();
+      for (int i = 0; i < _cartItems.length; i++) {
+        _selectedIndices.add(i);
+      }
+    });
+  }
+
+  // คำนวณราคารวมสินค้าเฉพาะชิ้นที่ถูกเลือก (ยังไม่หักส่วนลด)
   double get _totalPrice {
     double total = 0;
-    for (var item in _cartItems) {
-      double price = double.tryParse(item['price'].toString()) ?? 0;
-      int qty = int.tryParse(item['quantity'].toString()) ?? 1;
-      total += (price * qty);
+    for (int index in _selectedIndices) {
+      if (index < _cartItems.length) {
+        final item = _cartItems[index];
+        double price = double.tryParse(item['price'].toString()) ?? 0;
+        int qty = int.tryParse(item['quantity'].toString()) ?? 1;
+        total += (price * qty);
+      }
     }
     return total;
   }
 
-  // คำนวณมูลค่าส่วนลดจาก CartService
+  // คำนวณมูลค่าส่วนลดจาก CartService (คิดจากยอดเฉพาะสินค้าที่เลือก)
   double get _discountAmount {
+    if (_totalPrice <= 0) return 0;
     return CartService().getDiscountAmount(_totalPrice);
   }
 
   // คำนวณยอดสุทธิหลังหักส่วนลด
   double get _finalPrice {
-    return _totalPrice - _discountAmount;
+    double finalPrice = _totalPrice - _discountAmount;
+    return finalPrice < 0 ? 0 : finalPrice;
   }
 
   // ฟังก์ชันแสดง Dialog สำหรับเปลี่ยน ไซส์ และ สี ของสินค้าในตะกร้า
@@ -137,6 +161,8 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isAllSelected = _cartItems.isNotEmpty && _selectedIndices.length == _cartItems.length;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -158,18 +184,47 @@ class _CartPageState extends State<CartPage> {
             )
           : Column(
               children: [
+                // แถบปุ่มเลือกทั้งหมด
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.white,
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        activeColor: const Color(0xFF7C3AED),
+                        value: isAllSelected,
+                        onChanged: (bool? value) {
+                          if (value == true) {
+                            _selectAllItems();
+                          } else {
+                            setState(() {
+                              _selectedIndices.clear();
+                            });
+                          }
+                        },
+                      ),
+                      Text('เลือกทั้งหมด (${_cartItems.length} รายการ)', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+
+                // รายการสินค้าพร้อม Checkbox
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _cartItems.length,
                     itemBuilder: (context, index) {
                       final item = _cartItems[index];
+                      final isSelected = _selectedIndices.contains(index);
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
+                          border: isSelected ? Border.all(color: const Color(0xFF7C3AED), width: 1.5) : null,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.02),
@@ -180,6 +235,20 @@ class _CartPageState extends State<CartPage> {
                         ),
                         child: Row(
                           children: [
+                            // Checkbox สำหรับเลือกชำระเงินสินค้าชิ้นนี้
+                            Checkbox(
+                              activeColor: const Color(0xFF7C3AED),
+                              value: isSelected,
+                              onChanged: (bool? value) {
+                                setState(() {
+                                  if (value == true) {
+                                    _selectedIndices.add(index);
+                                  } else {
+                                    _selectedIndices.remove(index);
+                                  }
+                                });
+                              },
+                            ),
                             Container(
                               width: 60,
                               height: 60,
@@ -270,6 +339,8 @@ class _CartPageState extends State<CartPage> {
                                   onTap: () {
                                     setState(() {
                                       _cartItems.removeAt(index);
+                                      _selectedIndices.remove(index);
+                                      _selectAllItems();
                                     });
                                   },
                                   child: const Text('ลบ', style: TextStyle(color: Colors.red, fontSize: 12)),
@@ -283,7 +354,7 @@ class _CartPageState extends State<CartPage> {
                   ),
                 ),
 
-                // ส่วนแสดงผลสรุปยอดและปุ่มชำระเงิน (รองรับแสดงส่วนลดคูปอง)
+                // ส่วนแสดงผลสรุปยอด, สวิตช์เปิด/ปิดคูปอง และปุ่มชำระเงิน
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -301,22 +372,79 @@ class _CartPageState extends State<CartPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('ยอดรวมสินค้า', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                          Text('ยอดรวมสินค้าที่เลือก (${_selectedIndices.length} รายการ)', style: const TextStyle(fontSize: 14, color: Colors.grey)),
                           Text('฿$_totalPrice', style: const TextStyle(fontSize: 14, color: Colors.grey)),
                         ],
                       ),
-                      if (CartService().hasDiscountCoupon) ...[
-                        const SizedBox(height: 6),
+                      const SizedBox(height: 12),
+
+                      // ส่วนเปิด/ปิดการใช้คูปองส่วนลดแบบสวิตช์ (Switch)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: CartService().hasDiscountCoupon ? Colors.purple.shade50 : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: CartService().hasDiscountCoupon ? const Color(0xFF7C3AED) : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.confirmation_number_outlined,
+                                  color: CartService().hasDiscountCoupon ? const Color(0xFF7C3AED) : Colors.grey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  CartService().hasDiscountCoupon
+                                      ? 'โค้ดส่วนลด (${CartService().appliedCouponCode} -${CartService().discountPercent}%)'
+                                      : 'ใช้โค้ดส่วนลด (WELCOME50)',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: CartService().hasDiscountCoupon ? const Color(0xFF7C3AED) : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: CartService().hasDiscountCoupon,
+                              activeColor: const Color(0xFF7C3AED),
+                              onChanged: (bool value) {
+                                setState(() {
+                                  if (value) {
+                                    CartService().applyCoupon('WELCOME50', 50);
+                                  } else {
+                                    CartService().removeCoupon();
+                                  }
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      if (CartService().hasDiscountCoupon && _totalPrice > 0) ...[
+                        const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('ส่วนลด (${CartService().appliedCouponCode} - ${CartService().discountPercent}%)', 
-                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                            Text('-฿$_discountAmount', 
-                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                            Text(
+                              'ส่วนลด (${CartService().appliedCouponCode} - ${CartService().discountPercent}%)',
+                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              '-฿$_discountAmount',
+                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                            ),
                           ],
                         ),
                       ],
+
                       const Divider(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -337,15 +465,17 @@ class _CartPageState extends State<CartPage> {
                             backgroundColor: const Color(0xFF7C3AED),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          onPressed: _cartItems.isEmpty ? null : () {
+                          onPressed: _selectedIndices.isEmpty ? null : () {
+                            // ส่งเฉพาะรายการที่ผู้ใช้เลือกติ๊กไปยัง CheckoutPage
+                            // (หาก CheckoutPage ดึงจาก CartService ตรงๆ สามารถปรับตัวกรองได้ตามต้องการ)
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const CheckoutPage()),
                             ).then((_) => setState(() {}));
                           },
-                          child: const Text(
-                            'ดำเนินการชำระเงิน',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          child: Text(
+                            _selectedIndices.isEmpty ? 'กรุณาเลือกสินค้าอย่างน้อย 1 ชิ้น' : 'ดำเนินการชำระเงิน (${_selectedIndices.length})',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                         ),
                       ),
