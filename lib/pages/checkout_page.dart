@@ -27,7 +27,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ดึงรายการสินค้าจาก CartService
   List<Map<String, dynamic>> get _checkoutItems => CartService().items;
 
-  double get _totalPrice {
+  // คำนวณยอดรวมสินค้าปกติ
+  double get _subtotal {
     double total = 0;
     for (var item in _checkoutItems) {
       double price = double.tryParse(item['price'].toString()) ?? 0;
@@ -35,6 +36,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
       total += (price * qty);
     }
     return total;
+  }
+
+  // คำนวณยอดส่วนลดจาก CartService
+  double get _discountAmount {
+    final cart = CartService();
+    if (cart.hasDiscountCoupon) {
+      return _subtotal * (cart.discountPercent / 100);
+    }
+    return 0;
+  }
+
+  // ยอดรวมสุทธิหลังหักส่วนลด
+  double get _finalTotalPrice {
+    double finalPrice = _subtotal - _discountAmount;
+    return finalPrice < 0 ? 0 : finalPrice;
   }
 
   @override
@@ -216,7 +232,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final cartService = CartService();
       final items = cartService.items;
 
-      double totalPrice = _totalPrice;
+      double totalPrice = _finalTotalPrice;
 
       final itemsJson = items.map((item) => {
             'product_name': item['name'],
@@ -459,12 +475,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           },
                         ),
                   const Divider(height: 20),
+                  // แสดงยอดรวมสินค้าปกติ
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('ยอดรวมสินค้า', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      Text('฿$_subtotal', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                    ],
+                  ),
+                  // แสดงส่วนลดถ้ามีการเก็บโค้ดมา
+                  if (CartService().hasDiscountCoupon) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('ส่วนลด (${CartService().appliedCouponCode} - ${CartService().discountPercent}%)',
+                            style: const TextStyle(color: Colors.red, fontSize: 14)),
+                        Text('-฿$_discountAmount', style: const TextStyle(color: Colors.red, fontSize: 14)),
+                      ],
+                    ),
+                  ],
+                  const Divider(height: 20),
+                  // ยอดรวมสุทธิหลังหักส่วนลด
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('ยอดรวมสุทธิ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       Text(
-                        '฿$_totalPrice',
+                        '฿$_finalTotalPrice',
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF7C3AED)),
                       ),
                     ],
@@ -532,9 +570,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           children: [
                             const Text('สแกน QR Code เพื่อชำระเงิน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             const SizedBox(height: 4),
-                            Text('ยอดที่ต้องชำระ: ฿$_totalPrice', style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.w900, fontSize: 16)),
+                            Text('ยอดที่ต้องชำระ: ฿$_finalTotalPrice', style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.w900, fontSize: 16)),
                             const SizedBox(height: 12),
-                            // รูป QR Code (สามารถเปลี่ยน URL เป็น QR Code จริงของร้านคุณได้)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(

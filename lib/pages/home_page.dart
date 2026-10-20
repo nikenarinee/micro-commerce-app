@@ -55,20 +55,18 @@ class _HomePageState extends State<HomePage> {
     return products;
   }
 
-  // ฟังก์ชันกดเก็บโค้ดส่วนลดจาก Supabase
+  // ฟังก์ชันกดเก็บโค้ดส่วนลดจาก Supabase (ดึงข้อมูลแถวแรกสุดมาใช้งานอัตโนมัติ)
   Future<void> _claimDefaultCoupon() async {
     try {
-      // ดึงโค้ดตัวอย่าง WELCOME50 จากตาราง coupons
       final response = await _supabase
           .from('coupons')
           .select()
-          .eq('code', 'WELCOME50')
-          .eq('is_active', true)
+          .limit(1)
           .maybeSingle();
 
       if (response != null) {
-        String code = response['code'];
-        int percent = response['discount_percent'];
+        String code = response['code'] ?? 'WELCOME50';
+        int percent = response['discount_percent'] ?? 50;
 
         CartService().applyCoupon(code, percent);
         setState(() {});
@@ -85,7 +83,7 @@ class _HomePageState extends State<HomePage> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่พบโค้ดส่วนลดนี้ในระบบ')),
+            const SnackBar(content: Text('ยังไม่มีข้อมูลในตาราง coupons กรุณาเพิ่มข้อมูลก่อน')),
           );
         }
       }
