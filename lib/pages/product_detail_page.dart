@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cart_page.dart';
-import 'cart_service.dart'; // 1. นำเข้า CartService
+import 'cart_service.dart';
+import 'auth_page.dart'; // นำเข้าหน้า AuthPage สำหรับกรณีที่ยังไม่ได้ล็อกอิน
 
 class ProductDetailPage extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -153,7 +155,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      // 2. บันทึกสินค้าพร้อมไซส์ สี และจำนวนลงตะกร้า
+                      // เช็กว่าเข้าสู่ระบบหรือยัง
+                      final user = Supabase.instance.client.auth.currentUser;
+                      if (user == null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AuthPage()),
+                        );
+                        return;
+                      }
+
+                      // ถ้าล็อกอินแล้ว เพิ่มลงตะกร้าตามปกติ
                       final cartItem = Map<String, dynamic>.from(widget.product);
                       cartItem['size'] = _selectedSize;
                       cartItem['color'] = _selectedColor;
@@ -177,7 +189,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      // กดซื้อทันที: บันทึกลงตะกร้าก่อนแล้วพาไปหน้าตะกร้า
+                      // เช็กว่าเข้าสู่ระบบหรือยัง
+                      final user = Supabase.instance.client.auth.currentUser;
+                      if (user == null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AuthPage()),
+                        );
+                        return;
+                      }
+
+                      // ถ้าล็อกอินแล้ว เพิ่มลงตะกร้าแล้วไปหน้าชำระเงิน/รถเข็น
                       final cartItem = Map<String, dynamic>.from(widget.product);
                       cartItem['size'] = _selectedSize;
                       cartItem['color'] = _selectedColor;
