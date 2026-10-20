@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_page.dart';
+import 'customer_orders_page.dart'; // นำเข้าหน้าประวัติการสั่งซื้อ
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -132,7 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('แก้ไขโปรไฟล์', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('โปรไฟล์ของฉัน', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF7C3AED),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -151,6 +152,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  
+                  // ปุ่มทางลัดไปหน้าประวัติการสั่งซื้อ
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEDE9FE),
+                        foregroundColor: const Color(0xFF7C3AED),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CustomerOrdersPage()),
+                        );
+                      },
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('ดูประวัติการสั่งซื้อของฉัน', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+
                   const Text('ชื่อ - นามสกุล', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                   const SizedBox(height: 6),
                   TextField(
