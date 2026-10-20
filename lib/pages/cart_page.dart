@@ -13,6 +13,7 @@ class _CartPageState extends State<CartPage> {
   // ดึงรายการสินค้ามาจาก CartService โดยตรง
   List<Map<String, dynamic>> get _cartItems => CartService().items;
 
+  // คำนวณราคารวมสินค้าทั้งหมด (ยังไม่หักส่วนลด)
   double get _totalPrice {
     double total = 0;
     for (var item in _cartItems) {
@@ -23,11 +24,20 @@ class _CartPageState extends State<CartPage> {
     return total;
   }
 
+  // คำนวณมูลค่าส่วนลดจาก CartService
+  double get _discountAmount {
+    return CartService().getDiscountAmount(_totalPrice);
+  }
+
+  // คำนวณยอดสุทธิหลังหักส่วนลด
+  double get _finalPrice {
+    return _totalPrice - _discountAmount;
+  }
+
   // ฟังก์ชันแสดง Dialog สำหรับเปลี่ยน ไซส์ และ สี ของสินค้าในตะกร้า
   void _showEditOptionsDialog(int index) {
     final item = _cartItems[index];
     
-    // กำหนดตัวเลือกจำลอง (สามารถปรับเปลี่ยนหรือดึงจากข้อมูลสินค้าจริงได้)
     final List<String> availableSizes = ['S', 'M', 'L', 'XL', 'Free Size'];
     final List<String> availableColors = ['ดำ', 'ขาว', 'ชมพู', 'ฟ้า', 'ครีม', 'เทา'];
 
@@ -104,7 +114,6 @@ class _CartPageState extends State<CartPage> {
                   ),
                   onPressed: () {
                     setState(() {
-                      // อัปเดตไซส์และสีใหม่ให้กับรายการสินค้าในตะกร้า
                       _cartItems[index]['size'] = selectedSize;
                       _cartItems[index]['color'] = selectedColor;
                     });
@@ -171,7 +180,6 @@ class _CartPageState extends State<CartPage> {
                         ),
                         child: Row(
                           children: [
-                            // แสดงรูปสินค้าจาก Supabase ถ้ามี
                             Container(
                               width: 60,
                               height: 60,
@@ -203,7 +211,6 @@ class _CartPageState extends State<CartPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
-                                  // คลิกที่ข้อความไซส์และสี เพื่อเปิดหน้าต่างแก้ไข
                                   InkWell(
                                     onTap: () => _showEditOptionsDialog(index),
                                     borderRadius: BorderRadius.circular(4),
@@ -275,7 +282,8 @@ class _CartPageState extends State<CartPage> {
                     },
                   ),
                 ),
-                // สรุปยอดและปุ่มชำระเงิน
+
+                // ส่วนแสดงผลสรุปยอดและปุ่มชำระเงิน (รองรับแสดงส่วนลดคูปอง)
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -293,9 +301,29 @@ class _CartPageState extends State<CartPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          const Text('ยอดรวมสินค้า', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                          Text('฿$_totalPrice', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                        ],
+                      ),
+                      if (CartService().hasDiscountCoupon) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('ส่วนลด (${CartService().appliedCouponCode} - ${CartService().discountPercent}%)', 
+                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                            Text('-฿$_discountAmount', 
+                              style: const TextStyle(fontSize: 14, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ],
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           const Text('ยอดรวมทั้งสิ้น', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           Text(
-                            '฿$_totalPrice',
+                            '฿$_finalPrice',
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF7C3AED)),
                           ),
                         ],
@@ -313,7 +341,7 @@ class _CartPageState extends State<CartPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const CheckoutPage()),
-                            );
+                            ).then((_) => setState(() {}));
                           },
                           child: const Text(
                             'ดำเนินการชำระเงิน',

@@ -55,6 +55,49 @@ class _HomePageState extends State<HomePage> {
     return products;
   }
 
+  // ฟังก์ชันกดเก็บโค้ดส่วนลดจาก Supabase
+  Future<void> _claimDefaultCoupon() async {
+    try {
+      // ดึงโค้ดตัวอย่าง WELCOME50 จากตาราง coupons
+      final response = await _supabase
+          .from('coupons')
+          .select()
+          .eq('code', 'WELCOME50')
+          .eq('is_active', true)
+          .maybeSingle();
+
+      if (response != null) {
+        String code = response['code'];
+        int percent = response['discount_percent'];
+
+        CartService().applyCoupon(code, percent);
+        setState(() {});
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เก็บโค้ดส่วนลด $code ($percent%) สำเร็จ!'),
+              backgroundColor: const Color(0xFF7C3AED),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ไม่พบโค้ดส่วนลดนี้ในระบบ')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,7 +189,6 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(builder: (_) => const ChatPage()),
                       ),
                     ),
-                    // (นำปุ่ม Logout ออกจากหน้าหลักแล้ว ย้ายไปไว้ที่หน้า Profile แทน)
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -166,13 +208,30 @@ class _HomePageState extends State<HomePage> {
                           Text('โค้ดส่วนลด 50%', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEDE9FE),
-                          borderRadius: BorderRadius.circular(8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: CartService().hasDiscountCoupon
+                              ? Colors.grey[300]
+                              : const Color(0xFFEDE9FE),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        child: const Text('เก็บโค้ด', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 12)),
+                        onPressed: CartService().hasDiscountCoupon
+                            ? null
+                            : _claimDefaultCoupon,
+                        child: Text(
+                          CartService().hasDiscountCoupon ? 'เก็บแล้ว' : 'เก็บโค้ด',
+                          style: TextStyle(
+                            color: CartService().hasDiscountCoupon
+                                ? Colors.grey[600]
+                                : const Color(0xFF7C3AED),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ],
                   ),
