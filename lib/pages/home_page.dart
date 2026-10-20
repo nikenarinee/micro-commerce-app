@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_page.dart';
-import 'auth_page.dart';
 import 'profile_page.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
@@ -147,18 +146,7 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(builder: (_) => const ChatPage()),
                       ),
                     ),
-                    // ปุ่ม Logout
-                    IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-                      onPressed: () async {
-                        await _supabase.auth.signOut();
-                        if (!mounted) return;
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AuthPage()),
-                        );
-                      },
-                    ),
+                    // (นำปุ่ม Logout ออกจากหน้าหลักแล้ว ย้ายไปไว้ที่หน้า Profile แทน)
                   ],
                 ),
                 const SizedBox(height: 12),

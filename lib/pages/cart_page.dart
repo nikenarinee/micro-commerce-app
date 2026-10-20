@@ -23,6 +23,109 @@ class _CartPageState extends State<CartPage> {
     return total;
   }
 
+  // ฟังก์ชันแสดง Dialog สำหรับเปลี่ยน ไซส์ และ สี ของสินค้าในตะกร้า
+  void _showEditOptionsDialog(int index) {
+    final item = _cartItems[index];
+    
+    // กำหนดตัวเลือกจำลอง (สามารถปรับเปลี่ยนหรือดึงจากข้อมูลสินค้าจริงได้)
+    final List<String> availableSizes = ['S', 'M', 'L', 'XL', 'Free Size'];
+    final List<String> availableColors = ['ดำ', 'ขาว', 'ชมพู', 'ฟ้า', 'ครีม', 'เทา'];
+
+    String selectedSize = item['size'] ?? availableSizes.first;
+    String selectedColor = item['color'] ?? availableColors.first;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('เปลี่ยนไซส์และสี', style: TextStyle(fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('เลือกไซส์:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: availableSizes.map((size) {
+                      final isSelected = selectedSize == size;
+                      return ChoiceChip(
+                        label: Text(size),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF7C3AED),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            selectedSize = size;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('เลือกสี:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: availableColors.map((color) {
+                      final isSelected = selectedColor == color;
+                      return ChoiceChip(
+                        label: Text(color),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF7C3AED),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            selectedColor = color;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      // อัปเดตไซส์และสีใหม่ให้กับรายการสินค้าในตะกร้า
+                      _cartItems[index]['size'] = selectedSize;
+                      _cartItems[index]['color'] = selectedColor;
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('อัปเดตตัวเลือกสินค้าเรียบร้อยแล้ว'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  child: const Text('ยืนยัน', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,10 +203,24 @@ class _CartPageState extends State<CartPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
-                                  // แสดงข้อมูลไซส์และสีที่ผู้ใช้เลือก
-                                  Text(
-                                    'ไซส์: ${item['size'] ?? '-'} | สี: ${item['color'] ?? '-'}',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                  // คลิกที่ข้อความไซส์และสี เพื่อเปิดหน้าต่างแก้ไข
+                                  InkWell(
+                                    onTap: () => _showEditOptionsDialog(index),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'ไซส์: ${item['size'] ?? '-'} | สี: ${item['color'] ?? '-'}',
+                                            style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 13, fontWeight: FontWeight.w600),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.edit, size: 14, color: Color(0xFF7C3AED)),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(

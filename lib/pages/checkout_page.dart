@@ -16,6 +16,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _isUploading = false;
   bool _isSubmitting = false;
 
+  // ดึงรายการสินค้าจาก CartService
+  List<Map<String, dynamic>> get _checkoutItems => CartService().items;
+
+  double get _totalPrice {
+    double total = 0;
+    for (var item in _checkoutItems) {
+      double price = double.tryParse(item['price'].toString()) ?? 0;
+      int qty = int.tryParse(item['quantity'].toString()) ?? 1;
+      total += (price * qty);
+    }
+    return total;
+  }
+
   // ฟังก์ชันอัปโหลดสลิปโอนเงินไป Supabase Storage
   Future<void> _pickAndUploadSlip() async {
     final picker = ImagePicker();
@@ -63,6 +76,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // ฟังก์ชันยืนยันคำสั่งซื้อ
   Future<void> _submitOrder() async {
+    if (_checkoutItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่มีสินค้าในตะกร้าสำหรับสั่งซื้อ')),
+      );
+      return;
+    }
+
     if (_slipUrl == null || _slipUrl!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาแนบรูปสลิปโอนเงินก่อนยืนยันคำสั่งซื้อ')),
@@ -77,12 +97,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final cartService = CartService();
       final items = cartService.items;
       
-      double totalPrice = 0;
-      for (var item in items) {
-        double price = double.tryParse(item['price'].toString()) ?? 0;
-        int qty = int.tryParse(item['quantity'].toString()) ?? 1;
-        totalPrice += (price * qty);
-      }
+      double totalPrice = _totalPrice;
 
       // แปลงรายการสินค้าเป็น JSON เพื่อเก็บลงฐานข้อมูล
       final itemsJson = items.map((item) => {
@@ -152,6 +167,148 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ส่วนแสดงรายการสินค้าที่สั่งซื้อ (สามารถปรับแก้/ลบได้)
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('รายการสินค้าที่สั่งซื้อ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('(${_checkoutItems.length} รายการ)', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  _checkoutItems.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: Text('ไม่มีสินค้าในรายการ', style: TextStyle(color: Colors.grey))),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _checkoutItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _checkoutItems[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  // รูปสินค้า
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: item['image_url'] != null && item['image_url'].toString().isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: Image.network(item['image_url'], fit: BoxFit.cover),
+                                          )
+                                        : const Icon(Icons.shopping_bag, size: 24, color: Colors.grey),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // ชื่อและรายละเอียดไซส์/สี
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item['name'] ?? '',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'ไซส์: ${item['size'] ?? '-'} | สี: ${item['color'] ?? '-'}',
+                                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '฿${item['price']}',
+                                          style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // ปุ่มจัดการจำนวนและปุ่มลบ
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                if (item['quantity'] > 1) {
+                                                  item['quantity']--;
+                                                }
+                                              });
+                                            },
+                                            child: const Icon(Icons.remove_circle_outline, size: 18, color: Colors.grey),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                            child: Text('${item['quantity']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          ),
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                item['quantity']++;
+                                              });
+                                            },
+                                            child: const Icon(Icons.add_circle_outline, size: 18, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _checkoutItems.removeAt(index);
+                                          });
+                                        },
+                                        child: const Text('ลบ', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                  const Divider(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('ยอดรวมสุทธิ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        '฿$_totalPrice',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF7C3AED)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ส่วนช่องทางการชำระเงินและอัปโหลดสลิป
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -209,7 +366,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   backgroundColor: const Color(0xFF7C3AED),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: _isSubmitting ? null : _submitOrder,
+                onPressed: (_isSubmitting || _checkoutItems.isEmpty) ? null : _submitOrder,
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('ยืนยันคำสั่งซื้อ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),

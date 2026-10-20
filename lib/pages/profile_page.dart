@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_page.dart';
-import 'customer_orders_page.dart'; // นำเข้าหน้าประวัติการสั่งซื้อ
+import 'customer_orders_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -80,6 +80,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ฟังก์ชันออกจากระบบ
+  Future<void> _signOut() async {
+    await _supabase.auth.signOut();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const AuthPage()),
+      (route) => false,
+    );
+  }
+
   Future<void> _deleteAccount() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -107,11 +118,9 @@ class _ProfilePageState extends State<ProfilePage> {
       final user = _supabase.auth.currentUser;
 
       if (user != null) {
-        // ลบข้อมูลโปรไฟล์ในตาราง profiles
         await _supabase.from('profiles').delete().eq('id', user.id);
       }
 
-      // ออกจากระบบ
       await _supabase.auth.signOut();
 
       if (!mounted) return;
@@ -153,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // ปุ่มทางลัดไปหน้าประวัติการสั่งซื้อ
+                  // ปุ่มดูประวัติการสั่งซื้อ
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 24),
@@ -229,6 +238,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 30),
+                  
+                  // ปุ่มบันทึกข้อมูล
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -242,6 +253,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // ปุ่มออกจากระบบ
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF7C3AED)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _signOut,
+                      icon: const Icon(Icons.logout, color: Color(0xFF7C3AED)),
+                      label: const Text('ออกจากระบบ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ปุ่มลบบัญชี
                   SizedBox(
                     width: double.infinity,
                     height: 50,
