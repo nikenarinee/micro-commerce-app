@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_page.dart';
+import 'admin_orders_page.dart'; // Import หน้าจัดการออเดอร์แยก
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -80,7 +81,6 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันอัปโหลดรูปภาพหลักเดี่ยวๆ ไปยัง Supabase Storage
   Future<String?> _pickAndUploadImage(BuildContext dialogContext) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
@@ -123,10 +123,10 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟอร์มสำหรับเพิ่มหรือแก้ไขสินค้า (รองรับรายละเอียด และรูปหลายรูป)
   void _showProductDialog({Map<String, dynamic>? product}) {
     final nameController = TextEditingController(text: product?['name'] ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
+    final stockController = TextEditingController(text: product?['stock']?.toString() ?? '10');
     final descController = TextEditingController(text: product?['description'] ?? '');
     final imagesController = TextEditingController(text: product?['image_url'] ?? '');
 
@@ -147,16 +147,32 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'ราคา (บาท)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'ราคา (บาท)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: stockController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'จำนวนสต็อก',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                // ช่องกรอกรายละเอียดสินค้าเพิ่มเติม
                 TextField(
                   controller: descController,
                   maxLines: 3,
@@ -167,7 +183,6 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // ช่องกรอกลิงก์รูปภาพ (รองรับหลายรูปคั่นด้วยเครื่องหมาย ,)
                 TextField(
                   controller: imagesController,
                   maxLines: 2,
@@ -178,7 +193,6 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // ปุ่มลัดสำหรับอัปโหลดรูปภาพเพิ่ม
                 OutlinedButton.icon(
                   onPressed: () async {
                     final uploadedUrl = await _pickAndUploadImage(dialogContext);
@@ -208,6 +222,7 @@ class _AdminPageState extends State<AdminPage> {
               onPressed: () async {
                 final name = nameController.text.trim();
                 final price = double.tryParse(priceController.text) ?? 0.0;
+                final stock = int.tryParse(stockController.text) ?? 0;
                 final description = descController.text.trim();
                 final imageUrls = imagesController.text.trim();
 
@@ -217,6 +232,7 @@ class _AdminPageState extends State<AdminPage> {
                   await _supabase.from('products').insert({
                     'name': name,
                     'price': price,
+                    'stock': stock,
                     'description': description,
                     'image_url': imageUrls,
                   });
@@ -224,6 +240,7 @@ class _AdminPageState extends State<AdminPage> {
                   await _supabase.from('products').update({
                     'name': name,
                     'price': price,
+                    'stock': stock,
                     'description': description,
                     'image_url': imageUrls,
                   }).eq('id', product['id']);
@@ -251,6 +268,15 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
+          // ปุ่มกดไปหน้าจัดการออเดอร์และตรวจสอบสลิป
+          IconButton(
+            icon: const Icon(Icons.receipt_long, color: Color(0xFF7C3AED)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminOrdersPage()),
+            ),
+            tooltip: 'จัดการออเดอร์และสลิป',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
             onPressed: () => setState(() {}),
@@ -353,6 +379,7 @@ class _AdminPageState extends State<AdminPage> {
                   itemCount: products.length,
                   itemBuilder: (context, index) {
                     final product = products[index];
+                    final stock = product['stock'] ?? 0;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -393,9 +420,29 @@ class _AdminPageState extends State<AdminPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  '฿${product['price']}',
-                                  style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '฿${product['price']}',
+                                      style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: stock > 0 ? Colors.green[50] : Colors.red[50],
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        stock > 0 ? 'คงเหลือ $stock' : 'สินค้าหมด',
+                                        style: TextStyle(
+                                          color: stock > 0 ? Colors.green[700] : Colors.red[700],
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

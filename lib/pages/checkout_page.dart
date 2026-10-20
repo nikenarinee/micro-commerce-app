@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // ใช้แสดงไฟล์ SVG
+import 'cart_service.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -11,13 +11,13 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  final _addressController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _supabase = Supabase.instance.client;
-  String? slipUrl;
+  String? _slipUrl;
+  bool _isUploading = false;
+  bool _isSubmitting = false;
 
-  // ฟังก์ชันอัปโหลดสลิปโอนเงิน
-  Future<void> _pickAndUploadSlip(BuildContext context) async {
+  // ฟังก์ชันอัปโหลดสลิปโอนเงินไป Supabase Storage
+  Future<void> _pickAndUploadSlip() async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
@@ -26,13 +26,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (pickedFile == null) return;
 
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
+    setState(() => _isUploading = true);
 
+    try {
       final fileBytes = await pickedFile.readAsBytes();
       final fileExt = pickedFile.name.split('.').last;
       final fileName = 'slip_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
@@ -42,24 +38,102 @@ class _CheckoutPageState extends State<CheckoutPage> {
             fileBytes,
             fileOptions: FileOptions(contentType: 'image/$fileExt'),
           );
-      
+
       final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
 
       setState(() {
-        slipUrl = publicUrl;
+        _slipUrl = publicUrl;
+        _isUploading = false;
       });
 
-      if (context.mounted) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('อัปโหลดสลิปสำเร็จ!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('อัปโหลดสลิปสำเร็จ!')),
+        );
+      }
     } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context);
+      setState(() => _isUploading = false);
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('อัปโหลดสลิปไม่สำเร็จ: $e')),
         );
       }
+    }
+  }
+
+  // ฟังก์ชันยืนยันคำสั่งซื้อ
+  Future<void> _submitOrder() async {
+    if (_slipUrl == null || _slipUrl!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาแนบรูปสลิปโอนเงินก่อนยืนยันคำสั่งซื้อ')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final user = _supabase.auth.currentUser;
+      final cartService = CartService();
+      final items = cartService.items;
+      
+      double totalPrice = 0;
+      for (var item in items) {
+        double price = double.tryParse(item['price'].toString()) ?? 0;
+        int qty = int.tryParse(item['quantity'].toString()) ?? 1;
+        totalPrice += (price * qty);
+      }
+
+      // แปลงรายการสินค้าเป็น JSON เพื่อเก็บลงฐานข้อมูล
+      final itemsJson = items.map((item) => {
+            'product_name': item['name'],
+            'price': item['price'],
+            'quantity': item['quantity'],
+            'size': item['size'],
+            'color': item['color'],
+          }).toList();
+
+      // บันทึกลงตาราง orders
+      await _supabase.from('orders').insert({
+        'user_email': user?.email ?? 'Guest',
+        'total_price': totalPrice,
+        'status': 'รอตรวจสอบ',
+        'slip_url': _slipUrl,
+        'items': itemsJson,
+      });
+
+      // เคลียร์ตะกร้าสินค้า
+      cartService.items.clear();
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('สั่งซื้อสำเร็จ!'),
+          content: const Text('ระบบได้รับคำสั่งซื้อและสลิปของคุณแล้ว กรุณารอแอดมินตรวจสอบและอนุมัติรายการ'),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () {
+                Navigator.pop(context); // ปิด Dialog
+                Navigator.pop(context); // กลับหน้าตะกร้า
+                Navigator.pop(context); // กลับหน้าหลัก
+              },
+              child: const Text('ตกลง', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -68,44 +142,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('ชำระเงินและยืนยันคำสั่งซื้อ', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: const Text('ยืนยันคำสั่งซื้อและชำระเงิน', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ที่อยู่สำหรับจัดส่งสินค้า', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _addressController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'กรอกที่อยู่จัดส่ง, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('เบอร์โทรศัพท์ติดต่อ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: '0812345678',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('ช่องทางการชำระเงิน', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -113,64 +159,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('โอนเงินผ่านบัญชีธนาคาร', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text('ธ.กสิกรไทย 123-4-56789-0', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
-                    ],
+                  const Text('ช่องทางการชำระเงิน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'โอนเงินผ่านบัญชีธนาคาร: 123-4-56789-0 (ธนาคารไทยพาณิชย์)\nชื่อบัญชี: Micro Commerce Shop',
+                    style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.5),
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    height: 150,
-                    width: 150,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Center(
-                      child: SvgPicture.network(
-                        'https://yqewlavvffogrreyymgo.supabase.co/storage/v1/object/public/product-images/qr.svg',
-                        width: 130,
-                        height: 130,
-                        placeholderBuilder: (context) => const CircularProgressIndicator(),
+                  const Text('แนบหลักฐานการชำระเงิน (สลิปโอนเงิน)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: _isUploading ? null : _pickAndUploadSlip,
+                    child: Container(
+                      height: 180,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
+                      child: _isUploading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _slipUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(_slipUrl!, fit: BoxFit.cover),
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey),
+                                    SizedBox(height: 8),
+                                    Text('แตะเพื่ออัปโหลดรูปสลิปโอนเงิน', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            const Text('แนบหลักฐานการชำระเงิน (สลิปโอนเงิน)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _pickAndUploadSlip(context),
-              child: Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade400, width: 1),
-                ),
-                child: slipUrl != null && slipUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(slipUrl!, fit: BoxFit.cover),
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.cloud_upload_outlined, size: 30, color: Colors.grey),
-                          SizedBox(height: 4),
-                          Text('คลิกเพื่ออัปโหลดรูปสลิปโอนเงิน', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -179,26 +209,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   backgroundColor: const Color(0xFF7C3AED),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('สั่งซื้อสำเร็จ!'),
-                      content: const Text('ระบบได้รับคำสั่งซื้อและหลักฐานการชำระเงินของคุณแล้ว รอเจ้าของร้านตรวจสอบและจัดส่งสินค้าครับ'),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.pop(context);
-                            Navigator.pop(context);
-                          },
-                          child: const Text('ตกลง', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                child: const Text('ยืนยันคำสั่งซื้อ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                onPressed: _isSubmitting ? null : _submitOrder,
+                child: _isSubmitting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('ยืนยันคำสั่งซื้อ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ),
           ],

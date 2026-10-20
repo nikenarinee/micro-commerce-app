@@ -17,19 +17,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   String _selectedSize = 'M';
   String _selectedColor = 'ดำ';
   int _quantity = 1;
-  int _currentImageIndex = 0; // ตัวแปรเก็บ index ของรูปที่กำลังแสดง
+  int _currentImageIndex = 0;
 
   final List<String> _sizes = ['S', 'M', 'L', 'XL'];
   final List<String> _colors = ['ดำ', 'ขาว', 'เทา', 'กรม'];
 
-  // ฟังก์ชันแยกรูปภาพหลายรูปออกจาก string (คั่นด้วย ,)
   List<String> _getProductImages() {
     final rawUrl = widget.product['image_url']?.toString() ?? '';
     if (rawUrl.isEmpty) return [];
     return rawUrl.split(',').map((url) => url.trim()).where((url) => url.isNotEmpty).toList();
   }
 
-  // ฟังก์ชันเปิดดูรูปภาพขนาดใหญ่เต็มจอ
   void _showFullScreenImage(String imageUrl) {
     showDialog(
       context: context,
@@ -61,6 +59,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Widget build(BuildContext context) {
     final product = widget.product;
     final price = product['price'] ?? 0;
+    final stock = int.tryParse(product['stock']?.toString() ?? '0') ?? 0;
+    final isOutOfStock = stock <= 0;
     final description = product['description'] ?? 'ไม่มีรายละเอียดสินค้าเพิ่มเติม';
     final images = _getProductImages();
 
@@ -79,12 +79,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ส่วนแสดงรูปภาพสินค้าหลายรูป (สไตล์เดียวกับตัวอย่างเว็บ)
+                  // ส่วนรูปภาพ
                   if (images.isNotEmpty)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // รูปภาพหลักขนาดใหญ่ (กดเพื่อซูมได้)
                         Expanded(
                           flex: 3,
                           child: GestureDetector(
@@ -92,15 +91,32 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             child: Container(
                               height: 320,
                               color: Colors.grey[100],
-                              child: Image.network(
-                                images[_currentImageIndex],
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: Image.network(
+                                      images[_currentImageIndex],
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
+                                    ),
+                                  ),
+                                  if (isOutOfStock)
+                                    Positioned.fill(
+                                      child: Container(
+                                        color: Colors.black.withOpacity(0.5),
+                                        child: const Center(
+                                          child: Text(
+                                            'สินค้าหมด',
+                                            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                        // รูปภาพย่อยด้านข้าง สำหรับกดสลับดู
                         if (images.length > 1) ...[
                           const SizedBox(width: 8),
                           SizedBox(
@@ -152,13 +168,33 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          '฿$price',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF059669)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '฿$price',
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF059669)),
+                            ),
+                            // แสดงสถานะคลังสินค้า
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isOutOfStock ? Colors.red[50] : Colors.purple[50],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isOutOfStock ? 'สินค้าหมด' : 'คลัง: เหลือ $stock ชิ้น',
+                                style: TextStyle(
+                                  color: isOutOfStock ? Colors.red : const Color(0xFF7C3AED),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         
-                        // รายละเอียดสินค้าเพิ่มเติม
                         const Text('รายละเอียดสินค้า', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 6),
                         Text(
@@ -170,7 +206,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         const Divider(),
                         const SizedBox(height: 10),
 
-                        // เลือกไซส์
                         const Text('เลือกไซส์', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 10),
                         Wrap(
@@ -188,7 +223,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // เลือกสี
                         const Text('เลือกสี', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 10),
                         Wrap(
@@ -206,7 +240,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // จำนวน
+                        // ส่วนเลือกจำนวน
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -215,14 +249,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.remove_circle_outline),
-                                  onPressed: () {
+                                  onPressed: isOutOfStock ? null : () {
                                     if (_quantity > 1) setState(() => _quantity--);
                                   },
                                 ),
                                 Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                                 IconButton(
                                   icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () => setState(() => _quantity++),
+                                  onPressed: isOutOfStock ? null : () {
+                                    if (_quantity < stock) {
+                                      setState(() => _quantity++);
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('สามารถซื้อได้สูงสุด $stock ชิ้นเท่านั้น')),
+                                      );
+                                    }
+                                  },
                                 ),
                               ],
                             ),
@@ -248,17 +290,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF7C3AED)),
+                      side: BorderSide(color: isOutOfStock ? Colors.grey : const Color(0xFF7C3AED)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: () {
+                    onPressed: isOutOfStock ? null : () {
                       final user = Supabase.instance.client.auth.currentUser;
                       if (user == null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AuthPage()),
-                        );
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthPage()));
                         return;
                       }
 
@@ -274,24 +313,28 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         SnackBar(content: Text('เพิ่ม "${product['name']}" ลงตะกร้าแล้ว!')),
                       );
                     },
-                    child: const Text('เพิ่มลงตะกร้า', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: Text(
+                      'เพิ่มลงตะกร้า',
+                      style: TextStyle(
+                        color: isOutOfStock ? Colors.grey : const Color(0xFF7C3AED),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED),
+                      backgroundColor: isOutOfStock ? Colors.grey : const Color(0xFF7C3AED),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    onPressed: () {
+                    onPressed: isOutOfStock ? null : () {
                       final user = Supabase.instance.client.auth.currentUser;
                       if (user == null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AuthPage()),
-                        );
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthPage()));
                         return;
                       }
 
@@ -303,12 +346,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
                       CartService().addItemWithDetails(cartItem, _selectedSize, _selectedColor, _quantity);
 
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CartPage()),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const CartPage()));
                     },
-                    child: const Text('ซื้อสินค้า', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    child: Text(
+                      isOutOfStock ? 'สินค้าหมด' : 'ซื้อสินค้า',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
                 ),
               ],
