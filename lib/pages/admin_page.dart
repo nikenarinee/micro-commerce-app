@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'chat_page.dart'; // นำเข้าหน้าแชท
+import 'chat_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -13,13 +13,11 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   final _supabase = Supabase.instance.client;
 
-  // ฟังก์ชันดึงสรุปยอดขายและจำนวนออเดอร์ของวันนี้จาก Supabase
   Future<Map<String, dynamic>> _fetchTodaySalesAndOrders() async {
     try {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day).toIso8601String();
 
-      // ดึงออเดอร์เฉพาะที่เกิดหลังจากเริ่มต้นวันนี้
       final response = await _supabase
           .from('orders')
           .select()
@@ -38,7 +36,6 @@ class _AdminPageState extends State<AdminPage> {
         'orderCount': orders.length,
       };
     } catch (e) {
-      // หากยังไม่มีตาราง orders ให้คืนค่า default เป็น 0
       return {
         'totalSales': 0.0,
         'orderCount': 0,
@@ -46,13 +43,11 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันดึงรายการสินค้าจาก Supabase
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     final response = await _supabase.from('products').select();
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // ฟังก์ชันลบสินค้า
   Future<void> _deleteProduct(dynamic id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -85,7 +80,7 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันเลือกรูปและอัปโหลดไป Supabase Storage
+  // ฟังก์ชันอัปโหลดรูปภาพหลักเดี่ยวๆ ไปยัง Supabase Storage
   Future<String?> _pickAndUploadImage(BuildContext dialogContext) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
@@ -128,11 +123,12 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟอร์มสำหรับเพิ่มหรือแก้ไขสินค้า
+  // ฟอร์มสำหรับเพิ่มหรือแก้ไขสินค้า (รองรับรายละเอียด และรูปหลายรูป)
   void _showProductDialog({Map<String, dynamic>? product}) {
     final nameController = TextEditingController(text: product?['name'] ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
-    String imageUrl = product?['image_url'] ?? '';
+    final descController = TextEditingController(text: product?['description'] ?? '');
+    final imagesController = TextEditingController(text: product?['image_url'] ?? '');
 
     showDialog(
       context: context,
@@ -160,37 +156,44 @@ class _AdminPageState extends State<AdminPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () async {
+                // ช่องกรอกรายละเอียดสินค้าเพิ่มเติม
+                TextField(
+                  controller: descController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'รายละเอียดสินค้าเพิ่มเติม',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // ช่องกรอกลิงก์รูปภาพ (รองรับหลายรูปคั่นด้วยเครื่องหมาย ,)
+                TextField(
+                  controller: imagesController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'ลิงก์รูปภาพ (คั่นด้วย , หากมีหลายรูป)',
+                    helperText: 'เช่น https://img1.jpg, https://img2.jpg',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // ปุ่มลัดสำหรับอัปโหลดรูปภาพเพิ่ม
+                OutlinedButton.icon(
+                  onPressed: () async {
                     final uploadedUrl = await _pickAndUploadImage(dialogContext);
                     if (uploadedUrl != null) {
                       setDialogState(() {
-                        imageUrl = uploadedUrl;
+                        if (imagesController.text.isEmpty) {
+                          imagesController.text = uploadedUrl;
+                        } else {
+                          imagesController.text = '${imagesController.text}, $uploadedUrl';
+                        }
                       });
                     }
                   },
-                  child: Container(
-                    height: 120,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(imageUrl, fit: BoxFit.cover),
-                          )
-                        : const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_a_photo, color: Colors.grey, size: 30),
-                              SizedBox(height: 4),
-                              Text('แตะเพื่ออัปโหลดรูปสินค้า', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
-                  ),
+                  icon: const Icon(Icons.add_a_photo),
+                  label: const Text('อัปโหลดรูปเพิ่มจากเครื่อง'),
                 ),
               ],
             ),
@@ -205,6 +208,8 @@ class _AdminPageState extends State<AdminPage> {
               onPressed: () async {
                 final name = nameController.text.trim();
                 final price = double.tryParse(priceController.text) ?? 0.0;
+                final description = descController.text.trim();
+                final imageUrls = imagesController.text.trim();
 
                 if (name.isEmpty) return;
 
@@ -212,13 +217,15 @@ class _AdminPageState extends State<AdminPage> {
                   await _supabase.from('products').insert({
                     'name': name,
                     'price': price,
-                    'image_url': imageUrl,
+                    'description': description,
+                    'image_url': imageUrls,
                   });
                 } else {
                   await _supabase.from('products').update({
                     'name': name,
                     'price': price,
-                    'image_url': imageUrl,
+                    'description': description,
+                    'image_url': imageUrls,
                   }).eq('id', product['id']);
                 }
 
@@ -257,22 +264,6 @@ class _AdminPageState extends State<AdminPage> {
             ),
             tooltip: 'แชทกับลูกค้า',
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF22C55E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Center(
-                child: Text(
-                  'เปิดร้านอยู่',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -280,7 +271,6 @@ class _AdminPageState extends State<AdminPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ส่วนแสดงยอดขายและออเดอร์ใหม่ดึงข้อมูลสดจาก Supabase
             FutureBuilder<Map<String, dynamic>>(
               future: _fetchTodaySalesAndOrders(),
               builder: (context, snapshot) {
@@ -302,7 +292,7 @@ class _AdminPageState extends State<AdminPage> {
                             const Text('ยอดขายวันนี้', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             Text(
-                              '฿ ${sales.toStringAsFixed(0)} -',
+                              '฿ ${sales.toStringAsFixed(0)}',
                               style: const TextStyle(color: Color(0xFF16A34A), fontSize: 20, fontWeight: FontWeight.w900),
                             ),
                           ],
@@ -335,64 +325,11 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 24),
-
-            // แถบเมนูลัดเข้าแชท
-            InkWell(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatPage()),
-              ),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF7C3AED).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.forum_rounded, color: Colors.white, size: 28),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ข้อความแชทจากลูกค้า',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'คลิกเพื่อเปิดกล่องข้อความและพูดคุยกับลูกค้า',
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // หัวข้อจัดการสต็อกสินค้า
             const Text(
               'จัดการสต็อกสินค้า',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
             const SizedBox(height: 12),
-
-            // รายการสินค้าจริงจาก Supabase
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
               builder: (context, snapshot) {
@@ -436,7 +373,7 @@ class _AdminPageState extends State<AdminPage> {
                             borderRadius: BorderRadius.circular(8),
                             child: product['image_url'] != null && product['image_url'].toString().isNotEmpty
                                 ? Image.network(
-                                    product['image_url'],
+                                    product['image_url'].toString().split(',').first.trim(),
                                     width: 45,
                                     height: 45,
                                     fit: BoxFit.cover,
@@ -481,8 +418,6 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 30),
-
-            // ปุ่มเพิ่มสินค้าใหม่
             SizedBox(
               width: double.infinity,
               height: 50,

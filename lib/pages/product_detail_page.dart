@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cart_page.dart';
 import 'cart_service.dart';
-import 'auth_page.dart'; // นำเข้าหน้า AuthPage สำหรับกรณีที่ยังไม่ได้ล็อกอิน
+import 'auth_page.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -17,14 +17,52 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   String _selectedSize = 'M';
   String _selectedColor = 'ดำ';
   int _quantity = 1;
+  int _currentImageIndex = 0; // ตัวแปรเก็บ index ของรูปที่กำลังแสดง
 
   final List<String> _sizes = ['S', 'M', 'L', 'XL'];
   final List<String> _colors = ['ดำ', 'ขาว', 'เทา', 'กรม'];
+
+  // ฟังก์ชันแยกรูปภาพหลายรูปออกจาก string (คั่นด้วย ,)
+  List<String> _getProductImages() {
+    final rawUrl = widget.product['image_url']?.toString() ?? '';
+    if (rawUrl.isEmpty) return [];
+    return rawUrl.split(',').map((url) => url.trim()).where((url) => url.isNotEmpty).toList();
+  }
+
+  // ฟังก์ชันเปิดดูรูปภาพขนาดใหญ่เต็มจอ
+  void _showFullScreenImage(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(imageUrl, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
     final price = product['price'] ?? 0;
+    final description = product['description'] ?? 'ไม่มีรายละเอียดสินค้าเพิ่มเติม';
+    final images = _getProductImages();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -41,19 +79,69 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // รูปภาพสินค้า
-                  Container(
-                    height: 300,
-                    width: double.infinity,
-                    color: Colors.grey[100],
-                    child: product['image_url'] != null && product['image_url'].toString().isNotEmpty
-                        ? Image.network(
-                            product['image_url'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
-                          )
-                        : const Center(child: Icon(Icons.shopping_bag, size: 80, color: Colors.grey)),
-                  ),
+                  // ส่วนแสดงรูปภาพสินค้าหลายรูป (สไตล์เดียวกับตัวอย่างเว็บ)
+                  if (images.isNotEmpty)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // รูปภาพหลักขนาดใหญ่ (กดเพื่อซูมได้)
+                        Expanded(
+                          flex: 3,
+                          child: GestureDetector(
+                            onTap: () => _showFullScreenImage(images[_currentImageIndex]),
+                            child: Container(
+                              height: 320,
+                              color: Colors.grey[100],
+                              child: Image.network(
+                                images[_currentImageIndex],
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // รูปภาพย่อยด้านข้าง สำหรับกดสลับดู
+                        if (images.length > 1) ...[
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 90,
+                            height: 320,
+                            child: ListView.builder(
+                              itemCount: images.length,
+                              itemBuilder: (context, index) {
+                                final isSelected = _currentImageIndex == index;
+                                return GestureDetector(
+                                  onTap: () => setState(() => _currentImageIndex = index),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    height: 75,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: isSelected ? const Color(0xFF7C3AED) : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(images[index], fit: BoxFit.cover),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    )
+                  else
+                    Container(
+                      height: 300,
+                      width: double.infinity,
+                      color: Colors.grey[100],
+                      child: const Center(child: Icon(Icons.shopping_bag, size: 80, color: Colors.grey)),
+                    ),
+
                   Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
@@ -68,6 +156,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           '฿$price',
                           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF059669)),
                         ),
+                        const SizedBox(height: 16),
+                        
+                        // รายละเอียดสินค้าเพิ่มเติม
+                        const Text('รายละเอียดสินค้า', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 6),
+                        Text(
+                          description,
+                          style: const TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
+                        ),
+
                         const SizedBox(height: 20),
                         const Divider(),
                         const SizedBox(height: 10),
@@ -155,7 +253,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      // เช็กว่าเข้าสู่ระบบหรือยัง
                       final user = Supabase.instance.client.auth.currentUser;
                       if (user == null) {
                         Navigator.push(
@@ -165,11 +262,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         return;
                       }
 
-                      // ถ้าล็อกอินแล้ว เพิ่มลงตะกร้าตามปกติ
                       final cartItem = Map<String, dynamic>.from(widget.product);
                       cartItem['size'] = _selectedSize;
                       cartItem['color'] = _selectedColor;
                       cartItem['quantity'] = _quantity;
+                      if (images.isNotEmpty) cartItem['image_url'] = images.first;
 
                       CartService().addItemWithDetails(cartItem, _selectedSize, _selectedColor, _quantity);
 
@@ -189,7 +286,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () {
-                      // เช็กว่าเข้าสู่ระบบหรือยัง
                       final user = Supabase.instance.client.auth.currentUser;
                       if (user == null) {
                         Navigator.push(
@@ -199,11 +295,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         return;
                       }
 
-                      // ถ้าล็อกอินแล้ว เพิ่มลงตะกร้าแล้วไปหน้าชำระเงิน/รถเข็น
                       final cartItem = Map<String, dynamic>.from(widget.product);
                       cartItem['size'] = _selectedSize;
                       cartItem['color'] = _selectedColor;
                       cartItem['quantity'] = _quantity;
+                      if (images.isNotEmpty) cartItem['image_url'] = images.first;
 
                       CartService().addItemWithDetails(cartItem, _selectedSize, _selectedColor, _quantity);
 
