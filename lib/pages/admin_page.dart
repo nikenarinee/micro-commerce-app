@@ -14,7 +14,7 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   final _supabase = Supabase.instance.client;
-  
+
   // ตัวแปรสำหรับจัดเก็บหมวดหมู่สินค้าที่เลือกกรอง
   String _selectedCategory = 'ทั้งหมด';
   final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม', 'ของใช้'];
@@ -81,10 +81,30 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
+  // ฟังก์ชันดึงและกรองสินค้าตามชื่อสินค้า (รวมไว้ที่เดียว ไม่ซ้ำซ้อน)
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    var query = _supabase.from('products').select();
-    final response = await query;
-    return List<Map<String, dynamic>>.from(response);
+    final response = await _supabase.from('products').select();
+    List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
+    // เช็กและกรองตามหมวดหมู่ที่เลือก
+    if (_selectedCategory != 'ทั้งหมด') {
+      products = products.where((product) {
+        final name = (product['name'] ?? '').toString().toLowerCase();
+
+        if (_selectedCategory == 'เสื้อผ้า') {
+          return name.contains('เสื้อ') || name.contains('เดรส') || name.contains('ชุด') || name.contains('กางเกง') || name.contains('กระโปรง');
+        } else if (_selectedCategory == 'รองเท้า') {
+          return name.contains('รองเท้า') || name.contains('ผ้าใบ') || name.contains('คัทชู');
+        } else if (_selectedCategory == 'เล็บปลอม') {
+          return name.contains('เล็บ') || name.contains('เล็บปลอม');
+        } else if (_selectedCategory == 'ของใช้') {
+          return name.contains('ของ') || name.contains('กระเป๋า') || name.contains('หมวก') || name.contains('ทำผม');
+        }
+        return true;
+      }).toList();
+    }
+
+    return products;
   }
 
   Future<void> _deleteProduct(dynamic id) async {
@@ -534,10 +554,7 @@ class _AdminPageState extends State<AdminPage> {
                   return Text('เกิดข้อผิดพลาด: ${snapshot.error}');
                 }
                 
-                final allProducts = snapshot.data ?? [];
-                final products = _selectedCategory == 'ทั้งหมด'
-                    ? allProducts
-                    : allProducts.where((p) => p['category'] == _selectedCategory).toList();
+                final products = snapshot.data ?? [];
 
                 if (products.isEmpty) {
                   return const Padding(
