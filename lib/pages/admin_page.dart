@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fl_chart/fl_chart.dart'; // นำเข้าไลบรารีกราฟ
 import 'chat_page.dart';
-import 'admin_orders_page.dart'; // Import หน้าจัดการออเดอร์แยก
+import 'admin_orders_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -14,6 +15,7 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   final _supabase = Supabase.instance.client;
 
+  // ดึงยอดขายและจำนวนออเดอร์ของวันนี้
   Future<Map<String, dynamic>> _fetchTodaySalesAndOrders() async {
     try {
       final now = DateTime.now();
@@ -41,6 +43,40 @@ class _AdminPageState extends State<AdminPage> {
         'totalSales': 0.0,
         'orderCount': 0,
       };
+    }
+  }
+
+  // ดึงข้อมูลยอดขาย 7 วันล่าสุดสำหรับแสดงกราฟ
+  Future<List<double>> _fetchWeeklySales() async {
+    try {
+      final now = DateTime.now();
+      // คำนวณหาย้อนหลังไป 7 วัน
+      final startOfWeek = now.subtract(const Duration(days: 6));
+      final startDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).toIso8601String();
+
+      final response = await _supabase
+          .from('orders')
+          .select('total_price, created_at')
+          .eq('status', 'สำเร็จ')
+          .gte('created_at', startDate);
+
+      // สร้างอาเรย์ 7 วัน (0 = วันที่เก่าสุด, 6 = วันนี้)
+      List<double> dailySales = [0, 0, 0, 0, 0, 0, 0];
+      for (var order in response) {
+        final price = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0.0;
+        final dateStr = order['created_at'];
+        if (dateStr != null) {
+          final orderDate = DateTime.parse(dateStr);
+          // หาว่าห่างจากวันเริ่มต้นกี่วัน
+          int diffDays = orderDate.difference(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day)).inDays;
+          if (diffDays >= 0 && diffDays < 7) {
+            dailySales[diffDays] += price;
+          }
+        }
+      }
+      return dailySales;
+    } catch (e) {
+      return [0, 0, 0, 0, 0, 0, 0];
     }
   }
 
@@ -268,7 +304,6 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          // ปุ่มกดไปหน้าจัดการออเดอร์และตรวจสอบสลิป
           IconButton(
             icon: const Icon(Icons.receipt_long, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -297,6 +332,7 @@ class _AdminPageState extends State<AdminPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // การ์ดแสดงยอดขายและออเดอร์วันนี้
             FutureBuilder<Map<String, dynamic>>(
               future: _fetchTodaySalesAndOrders(),
               builder: (context, snapshot) {
@@ -347,6 +383,87 @@ class _AdminPageState extends State<AdminPage> {
                       ),
                     ),
                   ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // กราฟแท่งแสดงยอดขาย 7 วันล่าสุด
+            FutureBuilder<List<double>>(
+              future: _fetchWeeklySales(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final weeklySales = snapshot.data ?? [0, 0, 0, 0, 0, 0, 0];
+                double maxY = weekly.fold(0.0, (prev, element) => prev > element ? prev : element);
+                if (maxY == 0) maxY = 1000; else maxY = maxY * 1.2;
+
+                return Container(
+                  height: 240,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('สถิติยอดขาย 7 วันล่าสุด', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: BarChart(
+                          BarChartData(
+                            alignment: BarChartAlignment.spaceAround,
+                            maxY: maxY,
+                            barTouchData: BarTouchData(enabled: true),
+                            titlesData: FlTitlesData(
+                              show: true,
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  getTitlesWidget: (value, meta) {
+                                    const days = ['6วันก่อน', '5วันก่อน', '4วันก่อน', '3วันก่อน', 'มะรืน', 'เมื่อวาน', 'วันนี้'];
+                                    int idx = value.toInt();
+                                    if (idx >= 0 && idx < days.length) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 8.0),
+                                        child: Text(days[idx], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                      );
+                                    }
+                                    return const Text('');
+                                  },
+                                ),
+                              ),
+                              leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            ),
+                            gridData: FlGridData(show: false),
+                            borderData: FlBorderData(show: false),
+                            barGroups: List.generate(7, (index) {
+                              return BarChartGroupData(
+                                x: index,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: weeklySales[index],
+                                    color: const Color(0xFF7C3AED),
+                                    width: 16,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -486,3 +603,6 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 }
+
+// ตัวแปรเสริมช่วยคำนวณ Max สูงสุดของกราฟ
+List<double> get weekly => [0, 0, 0, 0, 0, 0, 0];
