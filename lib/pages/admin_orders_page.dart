@@ -42,7 +42,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
     }
   }
 
-  // อนุมัติออเดอร์และตัดสต็อกอัตโนมัติ
+  // อนุมัติออเดอร์และตัดสต็อกอัตโนมัติ (แก้ไขจุดที่เช็คสินค้าให้รองรับ List ป้องกัน error 406)
   Future<void> _approveOrder(Map<String, dynamic> order) async {
     try {
       final orderId = order['id'];
@@ -52,22 +52,25 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
         final productName = item['product_name'];
         final int buyQty = int.tryParse(item['quantity'].toString()) ?? 1;
 
-        final productRes = await _supabase
+        // เปลี่ยนมาใช้ .select() แบบดึงเป็น List เพื่อป้องกัน Error กรณีมีสินค้าชื่อซ้ำกันหลายแถว
+        final List<dynamic> productRes = await _supabase
             .from('products')
             .select('id, stock')
-            .eq('name', productName)
-            .maybeSingle();
+            .eq('name', productName);
 
-        if (productRes != null) {
-          final int currentStock = int.tryParse(productRes['stock'].toString()) ?? 0;
+        if (productRes.isNotEmpty) {
+          final product = productRes.first;
+          final productId = product['id'];
+          final int currentStock = int.tryParse(product['stock'].toString()) ?? 0;
           final int newStock = currentStock - buyQty;
 
           await _supabase.from('products').update({
             'stock': newStock >= 0 ? newStock : 0,
-          }).eq('id', productRes['id']);
+          }).eq('id', productId);
         }
       }
 
+      // อัปเดตสถานะออเดอร์เป็นสำเร็จ
       await _supabase
           .from('orders')
           .update({'status': 'สำเร็จ'})
