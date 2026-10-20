@@ -1,11 +1,11 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final String? targetUserEmail; // สำหรับให้แอดมินเลือกคุยกับลูกค้ารายคน
+
+  const ChatPage({super.key, this.targetUserEmail});
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -17,13 +17,27 @@ class _ChatPageState extends State<ChatPage> {
   final ImagePicker _picker = ImagePicker();
   final ScrollController _scrollController = ScrollController();
 
-  // ฟังก์ชันดึงข้อความทั้งหมดจาก Supabase
+  // ฟังก์ชันดึงข้อความ (ถ้ามี targetUserEmail จะดึงเฉพาะแชทของลูกค้านั้น)
   Future<List<Map<String, dynamic>>> _fetchMessages() async {
-    final response = await _supabase
-        .from('messages')
-        .select()
-        .order('created_at', ascending: true);
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      var query = _supabase.from('messages').select().order('created_at', ascending: true);
+      
+      final response = await query;
+      final allMessages = List<Map<String, dynamic>>.from(response);
+
+      // ถ้าเปิดในมุมมองแอดมินและระบุ targetUserEmail มา ให้กรองเฉพาะแชทของลูกค้านั้น
+      if (widget.targetUserEmail != null) {
+        return allMessages.where((msg) {
+          final sender = msg['sender_email']?.toString() ?? '';
+          // เงื่อนไข: เป็นข้อความที่ลูกค้ารายนี้ส่งมา หรือ แอดมินส่งหาลูกค้ารายนี้
+          return sender == widget.targetUserEmail || sender.contains('admin');
+        }).toList();
+      }
+
+      return allMessages;
+    } catch (e) {
+      return [];
+    }
   }
 
   // ฟังก์ชันส่งข้อความเข้า Supabase
@@ -32,6 +46,7 @@ class _ChatPageState extends State<ChatPage> {
     if (text.isEmpty && imageUrl == null) return;
 
     final user = _supabase.auth.currentUser;
+    // ถ้าส่งจากแอดมิน ให้บันทึก sender_email เป็น admin หรือใช้อีเมลปัจจุบัน
     final email = user?.email ?? 'anonymous@shop.com';
 
     try {
@@ -83,10 +98,10 @@ class _ChatPageState extends State<ChatPage> {
       final fileName = 'chat_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
       await _supabase.storage.from('product-images').uploadBinary(
-        fileName,
-        fileBytes,
-        fileOptions: FileOptions(contentType: 'image/$fileExt'),
-      );
+            fileName,
+            fileBytes,
+            fileOptions: FileOptions(contentType: 'image/$fileExt'),
+          );
 
       final publicUrl = _supabase.storage.from('product-images').getPublicUrl(fileName);
 
@@ -106,10 +121,13 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final currentUserEmail = _supabase.auth.currentUser?.email ?? '';
+    final appBarTitle = widget.targetUserEmail != null 
+        ? 'แชทกับ: ${widget.targetUserEmail}' 
+        : 'แชทกับร้านค้า';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('แชทกับร้านค้า', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(appBarTitle, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
@@ -148,7 +166,7 @@ class _ChatPageState extends State<ChatPage> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final senderEmail = msg['sender_email'] ?? '';
-                    final isMe = senderEmail == currentUserEmail;
+                    final isMe = senderEmail == currentUserEmail || (widget.targetUserEmail != null && senderEmail.contains('admin'));
                     final text = msg['text'];
                     final imageUrl = msg['image_url'];
 

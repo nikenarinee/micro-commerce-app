@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart'; // นำเข้าไลบรารีกราฟ
-import 'chat_page.dart';
 import 'admin_orders_page.dart';
+import 'admin_chat_list_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -14,6 +14,10 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   final _supabase = Supabase.instance.client;
+  
+  // ตัวแปรสำหรับจัดเก็บหมวดหมู่สินค้าที่เลือกกรอง
+  String _selectedCategory = 'ทั้งหมด';
+  final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม', 'ของใช้'];
 
   // ดึงยอดขายและจำนวนออเดอร์ของวันนี้
   Future<Map<String, dynamic>> _fetchTodaySalesAndOrders() async {
@@ -50,7 +54,6 @@ class _AdminPageState extends State<AdminPage> {
   Future<List<double>> _fetchWeeklySales() async {
     try {
       final now = DateTime.now();
-      // คำนวณหาย้อนหลังไป 7 วัน
       final startOfWeek = now.subtract(const Duration(days: 6));
       final startDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day).toIso8601String();
 
@@ -60,14 +63,12 @@ class _AdminPageState extends State<AdminPage> {
           .eq('status', 'สำเร็จ')
           .gte('created_at', startDate);
 
-      // สร้างอาเรย์ 7 วัน (0 = วันที่เก่าสุด, 6 = วันนี้)
       List<double> dailySales = [0, 0, 0, 0, 0, 0, 0];
       for (var order in response) {
         final price = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0.0;
         final dateStr = order['created_at'];
         if (dateStr != null) {
           final orderDate = DateTime.parse(dateStr);
-          // หาว่าห่างจากวันเริ่มต้นกี่วัน
           int diffDays = orderDate.difference(DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day)).inDays;
           if (diffDays >= 0 && diffDays < 7) {
             dailySales[diffDays] += price;
@@ -81,7 +82,8 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    final response = await _supabase.from('products').select();
+    var query = _supabase.from('products').select();
+    final response = await query;
     return List<Map<String, dynamic>>.from(response);
   }
 
@@ -165,6 +167,7 @@ class _AdminPageState extends State<AdminPage> {
     final stockController = TextEditingController(text: product?['stock']?.toString() ?? '10');
     final descController = TextEditingController(text: product?['description'] ?? '');
     final imagesController = TextEditingController(text: product?['image_url'] ?? '');
+    String selectedCat = product?['category'] ?? 'เสื้อผ้า';
 
     showDialog(
       context: context,
@@ -181,6 +184,20 @@ class _AdminPageState extends State<AdminPage> {
                     labelText: 'ชื่อสินค้า',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedCat,
+                  decoration: InputDecoration(
+                    labelText: 'หมวดหมู่สินค้า',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  items: ['เสื้อผ้า', 'รองเท้า', 'เล็บปลอม', 'ของใช้'].map((cat) {
+                    return DropdownMenuItem(value: cat, child: Text(cat));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedCat = val);
+                  },
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -267,6 +284,7 @@ class _AdminPageState extends State<AdminPage> {
                 if (product == null) {
                   await _supabase.from('products').insert({
                     'name': name,
+                    'category': selectedCat,
                     'price': price,
                     'stock': stock,
                     'description': description,
@@ -275,6 +293,7 @@ class _AdminPageState extends State<AdminPage> {
                 } else {
                   await _supabase.from('products').update({
                     'name': name,
+                    'category': selectedCat,
                     'price': price,
                     'stock': stock,
                     'description': description,
@@ -321,7 +340,7 @@ class _AdminPageState extends State<AdminPage> {
             icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ChatPage()),
+              MaterialPageRoute(builder: (_) => const AdminChatListPage()),
             ),
             tooltip: 'แชทกับลูกค้า',
           ),
@@ -400,7 +419,7 @@ class _AdminPageState extends State<AdminPage> {
                 }
 
                 final weeklySales = snapshot.data ?? [0, 0, 0, 0, 0, 0, 0];
-                double maxY = weekly.fold(0.0, (prev, element) => prev > element ? prev : element);
+                double maxY = weeklySales.fold(0.0, (prev, element) => prev > element ? prev : element);
                 if (maxY == 0) maxY = 1000; else maxY = maxY * 1.2;
 
                 return Container(
@@ -468,11 +487,43 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 24),
+            
+            // หัวข้อและแถบกรองหมวดหมู่สินค้า (Filter Chips)
             const Text(
               'จัดการสต็อกสินค้า',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 45,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isSelected = _selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF7C3AED),
+                      backgroundColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      onSelected: (selected) {
+                        setState(() => _selectedCategory = cat);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 12),
+
+            // รายการสินค้าตามหมวดหมู่
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
               builder: (context, snapshot) {
@@ -482,11 +533,16 @@ class _AdminPageState extends State<AdminPage> {
                 if (snapshot.hasError) {
                   return Text('เกิดข้อผิดพลาด: ${snapshot.error}');
                 }
-                final products = snapshot.data ?? [];
+                
+                final allProducts = snapshot.data ?? [];
+                final products = _selectedCategory == 'ทั้งหมด'
+                    ? allProducts
+                    : allProducts.where((p) => p['category'] == _selectedCategory).toList();
+
                 if (products.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(20.0),
-                    child: Center(child: Text('ยังไม่มีสินค้าในระบบ', style: TextStyle(color: Colors.grey))),
+                    child: Center(child: Text('ยังไม่มีสินค้าในหมวดหมู่นี้', style: TextStyle(color: Colors.grey))),
                   );
                 }
 
@@ -603,6 +659,3 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 }
-
-// ตัวแปรเสริมช่วยคำนวณ Max สูงสุดของกราฟ
-List<double> get weekly => [0, 0, 0, 0, 0, 0, 0];
