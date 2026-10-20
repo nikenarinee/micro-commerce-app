@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'admin_page.dart';
 import 'chat_page.dart';
 import 'auth_page.dart';
 import 'profile_page.dart';
@@ -59,12 +58,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _supabase.auth.currentUser;
-    final userEmail = user?.email ?? '';
-
-    const adminEmail = 'admin@shop.com'; 
-    final isAdmin = (userEmail == adminEmail);
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Column(
@@ -154,16 +147,6 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(builder: (_) => const ChatPage()),
                       ),
                     ),
-                    // ปุ่ม Admin
-                    if (isAdmin)
-                      IconButton(
-                        icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AdminPage()),
-                        ).then((_) => setState(() {})),
-                        tooltip: 'จัดการร้านค้า',
-                      ),
                     // ปุ่ม Logout
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white, size: 20),
