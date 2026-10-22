@@ -42,43 +42,44 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
     }
   }
 
-  // อนุมัติออเดอร์และตัดสต็อกอัตโนมัติ (แก้ไขจุดที่เช็คสินค้าให้รองรับ List ป้องกัน error 406)
-  Future<void> _approveOrder(Map<String, dynamic> order) async {
+  // อัปเดตสถานะออเดอร์ (เช่น เปลี่ยนเป็น รอจัดส่ง, กำลังจัดส่ง, สำเร็จ)
+  Future<void> _updateOrderStatus(String orderId, String newStatus, {bool deductStock = false, Map<String, dynamic>? orderData}) async {
     try {
-      final orderId = order['id'];
-      final items = order['items'] as List<dynamic>? ?? [];
+      // ถ้าเป็นการอนุมัติและต้องตัดสต็อก
+      if (deductStock && orderData != null) {
+        final items = orderData['items'] as List<dynamic>? ?? [];
 
-      for (var item in items) {
-        final productName = item['product_name'];
-        final int buyQty = int.tryParse(item['quantity'].toString()) ?? 1;
+        for (var item in items) {
+          final productName = item['product_name'];
+          final int buyQty = int.tryParse(item['quantity'].toString()) ?? 1;
 
-        // เปลี่ยนมาใช้ .select() แบบดึงเป็น List เพื่อป้องกัน Error กรณีมีสินค้าชื่อซ้ำกันหลายแถว
-        final List<dynamic> productRes = await _supabase
-            .from('products')
-            .select('id, stock')
-            .eq('name', productName);
+          final List<dynamic> productRes = await _supabase
+              .from('products')
+              .select('id, stock')
+              .eq('name', productName);
 
-        if (productRes.isNotEmpty) {
-          final product = productRes.first;
-          final productId = product['id'];
-          final int currentStock = int.tryParse(product['stock'].toString()) ?? 0;
-          final int newStock = currentStock - buyQty;
+          if (productRes.isNotEmpty) {
+            final product = productRes.first;
+            final productId = product['id'];
+            final int currentStock = int.tryParse(product['stock'].toString()) ?? 0;
+            final int newStock = currentStock - buyQty;
 
-          await _supabase.from('products').update({
-            'stock': newStock >= 0 ? newStock : 0,
-          }).eq('id', productId);
+            await _supabase.from('products').update({
+              'stock': newStock >= 0 ? newStock : 0,
+            }).eq('id', productId);
+          }
         }
       }
 
-      // อัปเดตสถานะออเดอร์เป็นสำเร็จ
+      // อัปเดตสถานะในตาราง orders
       await _supabase
           .from('orders')
-          .update({'status': 'สำเร็จ'})
+          .update({'status': newStatus})
           .eq('id', orderId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อนุมัติออเดอร์และตัดสต็อกสำเร็จ!')),
+          SnackBar(content: Text('อัปเดตสถานะเป็น "$newStatus" สำเร็จ!'), backgroundColor: Colors.green),
         );
       }
 
@@ -86,7 +87,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการอนุมัติ: $e')),
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -135,9 +136,15 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
                   itemCount: _orders.length,
                   itemBuilder: (context, index) {
                     final order = _orders[index];
+                    final orderId = order['id'].toString();
                     final status = order['status'] ?? 'รอตรวจสอบ';
                     final items = order['items'] as List<dynamic>? ?? [];
                     final slipUrl = order['slip_url'];
+
+                    Color statusColor = Colors.orange;
+                    if (status == 'รอจัดส่ง') statusColor = Colors.blue;
+                    if (status == 'กำลังจัดส่ง') statusColor = Colors.purple;
+                    if (status == 'สำเร็จ') statusColor = Colors.green;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -153,20 +160,16 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('ออเดอร์ #${order['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text('ออเดอร์ #${orderId.length > 8 ? orderId.substring(0, 8) : orderId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: status == 'รอตรวจสอบ' ? Colors.orange[100] : Colors.green[100],
+                                  color: statusColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   status,
-                                  style: TextStyle(
-                                    color: status == 'รอตรวจสอบ' ? Colors.orange[800] : Colors.green[800],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
+                                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
                               ),
                             ],
@@ -180,7 +183,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Expanded(child: Text('- ${item['product_name']} (${item['size']}, ${item['color']}) x${item['quantity']}')),
+                                    Expanded(child: Text('- ${item['product_name']} x${item['quantity']}')),
                                     Text('฿${(double.tryParse(item['price'].toString()) ?? 0) * (int.tryParse(item['quantity'].toString()) ?? 1)}'),
                                   ],
                                 ),
@@ -201,13 +204,33 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
                               label: const Text('ตรวจสอบสลิปโอนเงิน'),
                             ),
                           const SizedBox(height: 12),
+                          
+                          // ปุ่มจัดการเปลี่ยนสถานะตามขั้นตอน
                           if (status == 'รอตรวจสอบ')
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                                onPressed: () => _updateOrderStatus(orderId, 'รอจัดส่ง'),
+                                child: const Text('ยืนยันสลิป และเปลี่ยนเป็น "รอจัดส่ง"', style: TextStyle(color: Colors.white)),
+                              ),
+                            ),
+                          if (status == 'รอจัดส่ง')
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                                onPressed: () => _updateOrderStatus(orderId, 'กำลังจัดส่ง'),
+                                child: const Text('จัดส่งสินค้าแล้ว (เปลี่ยนเป็น "กำลังจัดส่ง")', style: TextStyle(color: Colors.white)),
+                              ),
+                            ),
+                          if (status == 'กำลังจัดส่ง')
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                onPressed: () => _approveOrder(order),
-                                child: const Text('อนุมัติออเดอร์และตัดสต็อก', style: TextStyle(color: Colors.white)),
+                                onPressed: () => _updateOrderStatus(orderId, 'สำเร็จ', deductStock: true, orderData: order),
+                                child: const Text('ยืนยันส่งสำเร็จ และตัดสต็อกสินค้า', style: TextStyle(color: Colors.white)),
                               ),
                             ),
                         ],

@@ -141,6 +141,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text('โปรไฟล์ของฉัน', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF7C3AED),
@@ -162,29 +163,81 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // ปุ่มดูประวัติการสั่งซื้อ
+                  // แถบสถานะการสั่งซื้อแบบ Shopee (การซื้อของฉัน)
                   Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 24),
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEDE9FE),
-                        foregroundColor: const Color(0xFF7C3AED),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const CustomerOrdersPage()),
-                        );
-                      },
-                      icon: const Icon(Icons.receipt_long),
-                      label: const Text('ดูประวัติการสั่งซื้อของฉัน', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'การซื้อของฉัน',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CustomerOrdersPage()),
+                                );
+                              },
+                              child: const Row(
+                                children: [
+                                  Text('ดูประวัติการซื้อทั้งหมด', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatusItem(Icons.payment, 'ที่ต้องชำระ', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CustomerOrdersPage(initialFilter: 'รอตรวจสอบ')),
+                              );
+                            }),
+                            _buildStatusItem(Icons.inventory_2_outlined, 'ที่ต้องจัดส่ง', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CustomerOrdersPage(initialFilter: 'รอจัดส่ง')),
+                              );
+                            }),
+                            _buildStatusItem(Icons.local_shipping_outlined, 'ที่ต้องได้รับ', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CustomerOrdersPage(initialFilter: 'กำลังจัดส่ง')),
+                              );
+                            }),
+                            _buildStatusItem(Icons.check_circle_outline, 'สำเร็จแล้ว', () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CustomerOrdersPage(initialFilter: 'สำเร็จ')),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
 
+                  const SizedBox(height: 24),
                   const Text('ชื่อ - นามสกุล', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                   const SizedBox(height: 6),
                   TextField(
@@ -192,7 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     decoration: InputDecoration(
                       hintText: 'กรอกชื่อของคุณ',
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
@@ -206,7 +259,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     decoration: InputDecoration(
                       hintText: 'กรอกเบอร์โทรศัพท์',
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
@@ -232,7 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     decoration: InputDecoration(
                       hintText: 'กรอกที่อยู่ของคุณ',
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
@@ -286,6 +339,27 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildStatusItem(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF7C3AED), size: 26),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
