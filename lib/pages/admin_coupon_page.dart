@@ -12,16 +12,19 @@ class _AdminCouponPageState extends State<AdminCouponPage> {
   final _supabase = Supabase.instance.client;
   final _codeController = TextEditingController();
   final _percentController = TextEditingController();
+  final _limitController = TextEditingController(text: '10'); // ค่าเริ่มต้น 10 สิทธิ์
+  DateTime? _selectedDate;
   bool _isLoading = false;
 
-  // ฟังก์ชันเพิ่มโค้ดส่วนลดใหม่ลง Supabase
+  // ฟังก์ชันเพิ่มโค้ดส่วนลดใหม่ลง Supabase พร้อมจำกัดสิทธิ์และวันหมดอายุ
   Future<void> _addCoupon() async {
     final code = _codeController.text.trim().toUpperCase();
     final percent = int.tryParse(_percentController.text.trim()) ?? 0;
+    final limit = int.tryParse(_limitController.text.trim()) ?? 10;
 
-    if (code.isEmpty || percent <= 0) {
+    if (code.isEmpty || percent <= 0 || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกรหัสโค้ดและเปอร์เซ็นต์ส่วนลดให้ถูกต้อง')),
+        const SnackBar(content: Text('กรุณากรอกข้อมูลและเลือกวันหมดอายุให้ครบถ้วน')),
       );
       return;
     }
@@ -32,11 +35,18 @@ class _AdminCouponPageState extends State<AdminCouponPage> {
       await _supabase.from('coupons').insert({
         'code': code,
         'discount_percent': percent,
+        'usage_limit': limit,
+        'claimed_count': 0,
+        'expires_at': _selectedDate!.toIso8601String(),
         'is_active': true,
       });
 
       _codeController.clear();
       _percentController.clear();
+      _limitController.text = '10';
+      setState(() {
+        _selectedDate = null;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,8 +68,9 @@ class _AdminCouponPageState extends State<AdminCouponPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('จัดการโค้ดส่วนลด (แอดมิน)'),
+        title: const Text('จัดการโค้ดส่วนลด (แอดมิน)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF7C3AED),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -82,18 +93,64 @@ class _AdminCouponPageState extends State<AdminCouponPage> {
                   TextField(
                     controller: _codeController,
                     decoration: const InputDecoration(
-                      labelText: 'รหัสโค้ด (เช่น SAVE20, SPECIAL50)',
+                      labelText: 'รหัสโค้ด (เช่น FLASH50)',
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _percentController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'เปอร์เซ็นต์ส่วนลด (%)',
-                      border: OutlineInputBorder(),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _percentController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'ส่วนลด (%)',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _limitController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'จำนวนสิทธิ์',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedDate == null
+                            ? 'ยังไม่ได้เลือกวันหมดอายุ'
+                            : 'หมดอายุ: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year + 543}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+                        onPressed: () async {
+                          final pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2100),
+                          );
+                          if (pickedDate != null) {
+                            setState(() {
+                              _selectedDate = pickedDate;
+                            });
+                          }
+                        },
+                        child: const Text('เลือกวันหมดอายุ', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -131,12 +188,22 @@ class _AdminCouponPageState extends State<AdminCouponPage> {
                     itemCount: coupons.length,
                     itemBuilder: (context, index) {
                       final coupon = coupons[index];
+                      final limit = coupon['usage_limit'] ?? 10;
+                      final claimed = coupon['claimed_count'] ?? 0;
+                      final expiresAt = coupon['expires_at'] != null 
+                          ? DateTime.parse(coupon['expires_at']) 
+                          : null;
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
                           title: Text(coupon['code'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('ส่วนลด ${coupon['discount_percent']}%'),
+                          subtitle: Text(
+                            'ส่วนลด ${coupon['discount_percent']}% | ใช้ไปแล้ว $claimed/$limitสิทธิ์\nหมดอายุ: ${expiresAt != null ? '${expiresAt.day}/${expiresAt.month}/${expiresAt.year + 543}' : 'ไม่ระบุ'}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          isThreeLine: true,
                           trailing: IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () async {

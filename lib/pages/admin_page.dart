@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart'; // นำเข้าไลบรารีกราฟ
 import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
+import 'admin_coupon_page.dart'; // นำเข้าหน้าจัดการคูปองฝั่งแอดมิน
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -81,12 +82,11 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันดึงและกรองสินค้าตามชื่อสินค้า (รวมไว้ที่เดียว ไม่ซ้ำซ้อน)
+  // ฟังก์ชันดึงและกรองสินค้าตามชื่อสินค้า
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     final response = await _supabase.from('products').select();
     List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
 
-    // เช็กและกรองตามหมวดหมู่ที่เลือก
     if (_selectedCategory != 'ทั้งหมด') {
       products = products.where((product) {
         final name = (product['name'] ?? '').toString().toLowerCase();
@@ -343,6 +343,15 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
+          // 🎟️ ปุ่มกดเปิดไปหน้าจัดการโค้ดส่วนลดฝั่งแอดมิน
+          IconButton(
+            icon: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminCouponPage()),
+            ),
+            tooltip: 'จัดการโค้ดส่วนลด',
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -508,7 +517,7 @@ class _AdminPageState extends State<AdminPage> {
             ),
             const SizedBox(height: 24),
             
-            // หัวข้อและแถบกรองหมวดหมู่สินค้า (Filter Chips)
+            // หัวข้อและแถบกรองหมวดหมู่สินค้า
             const Text(
               'จัดการสต็อกสินค้า',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),

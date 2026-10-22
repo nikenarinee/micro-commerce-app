@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_page.dart';
 import 'profile_page.dart';
-import 'customer_orders_page.dart'; // หรือหน้าคำสั่งซื้อของลูกค้า
+import 'customer_orders_page.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
 import 'cart_service.dart';
+import 'coupon_page.dart'; // นำเข้าหน้าศูนย์รวมคูปองฝั่งลูกค้า
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,36 +54,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     return products;
-  }
-
-  Future<void> _claimDefaultCoupon() async {
-    try {
-      final response = await _supabase
-          .from('coupons')
-          .select()
-          .limit(1)
-          .maybeSingle();
-
-      if (response != null) {
-        String code = response['code'] ?? 'WELCOME50';
-        int percent = response['discount_percent'] ?? 50;
-
-        CartService().applyCoupon(code, percent);
-        setState(() {});
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('เก็บโค้ดส่วนลด $code ($percent%) สำเร็จ!'),
-              backgroundColor: const Color(0xFF7C3AED),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      // ignore error
-    }
   }
 
   // ส่วนแสดงเนื้อหาของแต่ละแท็บ
@@ -171,44 +142,33 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.qr_code_scanner, color: Color(0xFF7C3AED)),
-                        SizedBox(width: 8),
-                        Text('โค้ดส่วนลด 50%', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
-                      ],
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: CartService().hasDiscountCoupon
-                            ? Colors.grey[300]
-                            : const Color(0xFFEDE9FE),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+              // 🎟️ แบนเนอร์กดเข้าไปหน้าศูนย์รวมคูปอง
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CouponPage()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Row(
+                        children: [
+                          Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
+                          SizedBox(width: 8),
+                          Text('ศูนย์รวมโค้ดส่วนลด (เก็บโค้ด)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+                        ],
                       ),
-                      onPressed: CartService().hasDiscountCoupon ? null : _claimDefaultCoupon,
-                      child: Text(
-                        CartService().hasDiscountCoupon ? 'เก็บแล้ว' : 'เก็บโค้ด',
-                        style: TextStyle(
-                          color: CartService().hasDiscountCoupon ? Colors.grey[600] : const Color(0xFF7C3AED),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+                      Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF7C3AED)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -305,7 +265,7 @@ class _HomePageState extends State<HomePage> {
                                   ? ClipRRect(
                                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                       child: Image.network(
-                                        product['image_url'],
+                                        product['image_url'].toString().split(',').first.trim(),
                                         width: double.infinity,
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, error, stackTrace) =>
