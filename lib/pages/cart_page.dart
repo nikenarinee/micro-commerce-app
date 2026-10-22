@@ -61,7 +61,7 @@ class _CartPageState extends State<CartPage> {
     return finalPrice < 0 ? 0 : finalPrice;
   }
 
-  // ฟังก์ชันแสดง BottomSheet ให้ลูกค้าเลือกคูปองที่เก็บไว้แล้วมาใช้งาน
+  // ฟังก์ชันแสดง BottomSheet ให้เลือกคูปองที่เก็บไว้แล้วมาใช้งาน (แบบแยก query ไม่พึ่ง Foreign Key)
   void _showMyCouponsBottomSheet() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
@@ -79,22 +79,26 @@ class _CartPageState extends State<CartPage> {
     );
 
     try {
-      // ดึงข้อมูลคูปองที่ผู้ใช้คนนี้เก็บไว้จากตาราง user_coupons และ join กับตาราง coupons
-      final response = await _supabase
+      // 1. ดึง coupon_id ทั้งหมดที่ผู้ใช้คนนี้เก็บไว้จากตาราง user_coupons
+      final claimedResponse = await _supabase
           .from('user_coupons')
-          .select('id, coupon_id, coupons(id, code, discount_percent, expires_at)')
+          .select('coupon_id')
           .eq('user_id', user.id);
 
-      Navigator.pop(context); // ปิด Dialog โหลด
+      List<int> couponIds = claimedResponse.map((e) => e['coupon_id'] as int).toList();
 
       List<Map<String, dynamic>> myCoupons = [];
-      for (var item in response) {
-        if (item['coupons'] != null) {
-          myCoupons.add(item['coupons']);
-        }
+      if (couponIds.isNotEmpty) {
+        // 2. ดึงรายละเอียดคูปองจากตาราง coupons ตาม ID ที่เก็บไว้
+        final couponsResponse = await _supabase
+            .from('coupons')
+            .select()
+            .inFilter('id', couponIds);
+        myCoupons = List<Map<String, dynamic>>.from(couponsResponse);
       }
 
       if (!mounted) return;
+      Navigator.pop(context); // ปิด Dialog โหลด
 
       // เปิด BottomSheet ให้เลือกคูปอง
       showModalBottomSheet(
