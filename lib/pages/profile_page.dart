@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'auth_page.dart';
 import 'customer_orders_page.dart';
 
@@ -18,6 +19,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   String _email = '';
+  String? _avatarUrl; // เก็บ URL รูปโปรไฟล์
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _nameController.text = response['name'] ?? '';
         _phoneController.text = response['phone'] ?? '';
         _addressController.text = response['address'] ?? '';
+        _avatarUrl = response['avatar_url'];
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,6 +52,53 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  // ฟังก์ชันเลือกรูปและอัปโหลดขึ้น Supabase Storage
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final picker = ImagePicker();
+      final imageFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      
+      if (imageFile == null) return;
+
+      setState(() => _isLoading = true);
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final bytes = await imageFile.readAsBytes();
+      final fileExt = imageFile.name.split('.').last;
+      final fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final filePath = fileName;
+
+      // อัปโหลดไฟล์ไปที่ Supabase Storage (สร้าง Bucket ชื่อ 'avatars' ไว้ล่วงหน้านะครับ)
+      await _supabase.storage.from('avatars').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(upsert: true, contentType: 'image/$fileExt'),
+          );
+
+      // ดึง Public URL ของรูปภาพ
+      final imageUrl = _supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      // อัปเดต URL ลงในตาราง profiles ทันที
+      await _supabase.from('profiles').update({'avatar_url': imageUrl}).eq('id', user.id);
+
+      setState(() {
+        _avatarUrl = imageUrl;
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('อัปโหลดรูปโปรไฟล์สำเร็จ!'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการอัปโหลดรูป: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -65,6 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'phone': _phoneController.text.trim(),
         'address': _addressController.text.trim(),
         'email': _email,
+        'avatar_url': _avatarUrl,
       });
 
       if (!mounted) return;
@@ -80,7 +131,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // ฟังก์ชันออกจากระบบ
   Future<void> _signOut() async {
     await _supabase.auth.signOut();
     if (!mounted) return;
@@ -96,12 +146,9 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ยืนยันการลบบัญชี'),
-        content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้? การกระทำนี้ไม่สามารถย้อนกลับได้ ข้อมูลและแอคเคาท์ของคุณจะถูกลบออกจากระบบถาวร'),
+        content: const Text('คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้? ข้อมูลทั้งหมดจะถูกลบออกจากระบบถาวร'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ยกเลิก')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -116,11 +163,9 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       setState(() => _isLoading = true);
       final user = _supabase.auth.currentUser;
-
       if (user != null) {
         await _supabase.from('profiles').delete().eq('id', user.id);
       }
-
       await _supabase.auth.signOut();
 
       if (!mounted) return;
@@ -132,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการลบบัญชี: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
       );
       setState(() => _isLoading = false);
     }
@@ -154,16 +199,41 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Center(
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Color(0xFFEDE9FE),
-                      child: Icon(Icons.person, size: 60, color: Color(0xFF7C3AED)),
+                  // ส่วนรูปโปรไฟล์ กดที่รูปเพื่อเปลี่ยนได้
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: const Color(0xFFEDE9FE),
+                          backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                              ? NetworkImage(_avatarUrl!)
+                              : null,
+                          child: (_avatarUrl == null || _avatarUrl!.isEmpty)
+                              ? const Icon(Icons.person, size: 60, color: Color(0xFF7C3AED))
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: InkWell(
+                            onTap: _pickAndUploadImage,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF7C3AED),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
                   
-                  // แถบสถานะการสั่งซื้อแบบ Shopee (การซื้อของฉัน)
+                  // แถบสถานะการสั่งซื้อแบบ Shopee
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -182,10 +252,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'การซื้อของฉัน',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
+                            const Text('การซื้อของฉัน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                             InkWell(
                               onTap: () {
                                 Navigator.push(
@@ -243,11 +310,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      hintText: 'กรอกชื่อของคุณ',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -257,11 +322,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
-                      hintText: 'กรอกเบอร์โทรศัพท์',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -283,16 +346,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     controller: _addressController,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'กรอกที่อยู่ของคุณ',
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
                     ),
                   ),
                   const SizedBox(height: 30),
                   
-                  // ปุ่มบันทึกข้อมูล
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -306,8 +366,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // ปุ่มออกจากระบบ
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -322,8 +380,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // ปุ่มลบบัญชี
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -344,7 +400,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildStatusItem(IconData icon, String label, VoidCallback onTap) {
     return InkWell(
-      onTap: onTap,
+      onTap: onTap, // ใช้แค่ onTap ก็พอครับ
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -353,10 +409,7 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Icon(icon, color: const Color(0xFF7C3AED), size: 26),
             const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
-            ),
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
