@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_page.dart';
-import 'admin_page.dart'; // เพิ่ม import หน้า Admin
+import 'admin_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -50,20 +50,15 @@ class _AuthPageState extends State<AuthPage> {
 
       if (!mounted) return;
 
-      // กำหนดอีเมลแอดมินของคุณตรงนี้ (สามารถเปลี่ยนเป็นเมลจริงที่ต้องการใช้ได้เลยครับ)
       const adminEmail = 'admin@shop.com';
-      
-      // ตรวจสอบว่าผู้ใช้ที่ล็อกอินเป็นแอดมินหรือไม่
       final currentUserEmail = Supabase.instance.client.auth.currentUser?.email;
 
       if (currentUserEmail == adminEmail) {
-        // ถ้าเป็นเมลแอดมิน ให้พุ่งตรงไปหน้า Admin ทันที
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const AdminPage()),
         );
       } else {
-        // ถ้าเป็นลูกค้าทั่วไป ให้ไปหน้า Home ปกติ
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -76,6 +71,72 @@ class _AuthPageState extends State<AuthPage> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ฟังก์ชันลืมรหัสผ่าน
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      String tempEmail = '';
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('รีเซ็ตรหัสผ่าน'),
+          content: TextField(
+            onChanged: (value) => tempEmail = value,
+            decoration: const InputDecoration(hintText: 'กรอกอีเมลของคุณที่นี่'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('ยกเลิก')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, tempEmail),
+              child: const Text('ส่งลิงก์รีเซ็ต'),
+            ),
+          ],
+        ),
+      ).then((value) async {
+        if (value != null && value.toString().isNotEmpty) {
+          try {
+            await Supabase.instance.client.auth.resetPasswordForEmail(value.toString());
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว!'), backgroundColor: Colors.green),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      });
+      return;
+    }
+
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณแล้ว!'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // ฟังก์ชันเข้าสู่ระบบด้วย Google
+  Future<void> _signInWithGoogle() async {
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In Error: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -222,7 +283,7 @@ class _AuthPageState extends State<AuthPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: _resetPassword,
                             child: const Text('ลืมรหัสผ่าน ?', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -262,36 +323,20 @@ class _AuthPageState extends State<AuthPage> {
                           ],
                         ),
                         const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.grey[100],
-                                  side: BorderSide.none,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 28),
-                                label: const Text('google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-                                onPressed: () {},
-                              ),
+                        // ปุ่ม Google เต็มความกว้าง (ลบปุ่ม Line ออกแล้ว)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.grey[100],
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: Colors.grey[100],
-                                  side: BorderSide.none,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                icon: const Icon(Icons.chat_bubble, color: Colors.green, size: 20),
-                                label: const Text('Line', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-                                onPressed: () {},
-                              ),
-                            ),
-                          ],
+                            icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 28),
+                            label: const Text('เข้าสู่ระบบด้วย Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+                            onPressed: _signInWithGoogle,
+                          ),
                         ),
                       ],
                     ],
