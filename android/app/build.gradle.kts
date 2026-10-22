@@ -25,6 +25,16 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        resources.excludes.add("META-INF/DEPENDENCIES")
+        resources.excludes.add("META-INF/NOTICE")
+        resources.excludes.add("META-INF/LICENSE")
+        resources.excludes.add("META-INF/LICENSE.txt")
+        resources.excludes.add("META-INF/NOTICE.txt")
+    }
+
+
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
