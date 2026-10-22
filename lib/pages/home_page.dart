@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'chat_page.dart';
-import 'profile_page.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
 import 'cart_service.dart'; // นำเข้า CartService เพื่อใช้งานตะกร้า
@@ -143,15 +142,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // ปุ่มโปรไฟล์ (รูปคน)
-                    IconButton(
-                      icon: const Icon(Icons.person, color: Colors.white),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ProfilePage()),
-                      ),
-                      tooltip: 'โปรไฟล์ของฉัน',
-                    ),
+                    // ❌ นำปุ่มโปรไฟล์ออกแล้ว เนื่องจากย้ายไปไว้ที่แท็บด้านล่าง (MainNavigationPage)[cite: 4]
                     // ตะกร้าสินค้า
                     Stack(
                       children: [

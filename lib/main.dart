@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/welcome_page.dart'; // นำเข้าหน้า Welcome ที่เพิ่งสร้าง
+import 'pages/main_navigation_page.dart'; // นำเข้าหน้า MainNavigationPage ที่มีแถบเมนูด้านล่าง
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Micro Commerce',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const WelcomePage(), // ตั้งให้เปิดมาเจอหน้า Welcome เป็นอันแรก
+      home: const MainNavigationPage(), // ตั้งให้เปิดมาเจอหน้าหลักที่มีแถบเมนูด้านล่าง
       debugShowCheckedModeBanner: false,
     );
   }
