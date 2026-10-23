@@ -404,7 +404,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (รองรับปุ่มกดลูกศรซ้าย-ขวา และเลื่อนอัตโนมัติ)
+// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (ขยายความสูงรูปให้เห็นชัดเจนยิ่งขึ้น)
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -439,7 +439,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
     }
   }
 
-  // ฟังก์ชันกดเลื่อนไปภาพถัดไป
   void _nextPage() {
     if (_banners.isNotEmpty) {
       int next = (_currentPage + 1) % _banners.length;
@@ -451,7 +450,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
     }
   }
 
-  // ฟังก์ชันกดเลื่อนกลับภาพก่อนหน้า
   void _prevPage() {
     if (_banners.isNotEmpty) {
       int prev = (_currentPage - 1 + _banners.length) % _banners.length;
@@ -466,7 +464,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
+      return const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()));
     }
 
     if (_banners.isEmpty) {
@@ -479,7 +477,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
       child: Column(
         children: [
           SizedBox(
-            height: 130,
+            height: 180, // 📐 ปรับขยายความสูงจาก 130 เป็น 180 ให้เห็นรูปเต็มๆ ชัดเจนขึ้น
             child: Stack(
               children: [
                 PageView.builder(
@@ -537,7 +535,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                    fontSize: 15,
                                   ),
                                 ),
                               ),
@@ -550,13 +548,13 @@ class _BannerCarouselState extends State<BannerCarousel> {
                 ),
                 // ◀️ ปุ่มกดเลื่อนซ้าย
                 Positioned(
-                  left: 20,
+                  left: 24,
                   top: 0,
                   bottom: 0,
                   child: Center(
                     child: CircleAvatar(
                       radius: 16,
-                      backgroundColor: Colors.black.withOpacity(0.3),
+                      backgroundColor: Colors.black.withOpacity(0.35),
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white),
@@ -567,13 +565,13 @@ class _BannerCarouselState extends State<BannerCarousel> {
                 ),
                 // ▶️ ปุ่มกดเลื่อนขวา
                 Positioned(
-                  right: 20,
+                  right: 24,
                   top: 0,
                   bottom: 0,
                   child: Center(
                     child: CircleAvatar(
                       radius: 16,
-                      backgroundColor: Colors.black.withOpacity(0.3),
+                      backgroundColor: Colors.black.withOpacity(0.35),
                       child: IconButton(
                         padding: EdgeInsets.zero,
                         icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
