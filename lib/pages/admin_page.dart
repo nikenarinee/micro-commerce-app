@@ -5,7 +5,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
 import 'admin_coupon_page.dart';
-import 'admin_video_page.dart'; // หรือ path ที่เก็บไฟล์ admin_video_page ของคุณนลินี
+import 'admin_video_page.dart';
+import 'admin_banner_page.dart'; // 🖼️ นำเข้าหน้าจัดการแบนเนอร์โปรโมชัน
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -422,6 +423,16 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
+          // 🖼️ ปุ่มจัดการแบนเนอร์โปรโมชัน (เพิ่มใหม่ที่นี่)
+          IconButton(
+            icon: const Icon(Icons.view_carousel, color: Color(0xFF7C3AED)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminBannerPage()),
+            ),
+            tooltip: 'จัดการแบนเนอร์โปรโมชัน',
+          ),
+          // 🎟️ ปุ่มจัดการโค้ดส่วนลด
           IconButton(
             icon: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -430,6 +441,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             ),
             tooltip: 'จัดการโค้ดส่วนลด',
           ),
+          // 🔄 ปุ่มรีเฟรชข้อมูล
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
             onPressed: () => setState(() {}),
