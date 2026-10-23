@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:video_player/video_player.dart'; 
 class AdminVideoPage extends StatefulWidget {
   const AdminVideoPage({super.key});
 
@@ -43,7 +43,6 @@ class _AdminVideoPageState extends State<AdminVideoPage> {
     final picker = ImagePicker();
     
     if (isVideo) {
-      // เลือกไฟล์วิดีโอ
       final XFile? pickedFile = await picker.pickVideo(source: ImageSource.gallery);
       if (pickedFile == null) return null;
 
@@ -68,7 +67,6 @@ class _AdminVideoPageState extends State<AdminVideoPage> {
         setState(() => _isUploading = false);
       }
     } else {
-      // เลือกไฟล์รูปภาพหน้าปก
       final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
       if (pickedFile == null) return null;
 

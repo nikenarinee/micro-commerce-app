@@ -5,7 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
 import 'admin_coupon_page.dart';
-import 'admin_video_page.dart';
+import 'admin_video_page.dart'; // หรือ path ที่เก็บไฟล์ admin_video_page ของคุณนลินี
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
