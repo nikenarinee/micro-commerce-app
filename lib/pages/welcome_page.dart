@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_page.dart';
 import 'product_detail_page.dart';
-import 'reset_password_page.dart'; // อย่าลืม import หน้าตั้งรหัสผ่านใหม่เข้ามาด้วยนะครับ
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -20,40 +19,7 @@ class _WelcomePageState extends State<WelcomePage> {
   void initState() {
     super.initState();
     _loadFeaturedProducts();
-    _checkPasswordRecoveryLink(); // เพิ่มตัวเช็กลิงก์รีเซ็ตรหัสผ่านตรงนี้
-  }
-
-  // ฟังก์ชันดักจับลิงก์รีเซ็ตรหัสผ่านจากอีเมล
-  void _checkPasswordRecoveryLink() {
-    // 1. ดักฟัง Event ของ Supabase Auth
-    _supabase.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.passwordRecovery) {
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
-        );
-      }
-    });
-
-    // 2. ดักเช็กพารามิเตอร์ ?code= ใน URL (กรณีเปิดผ่านเว็บ)
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final uri = Uri.base;
-      if (uri.queryParameters.containsKey('code')) {
-        final code = uri.queryParameters['code']!;
-        try {
-          await _supabase.auth.exchangeCodeForSession(code);
-          if (!mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
-          );
-        } catch (e) {
-          debugPrint('Error exchanging code for session: $e');
-        }
-      }
-    });
+    // ย้ายตัวดักจับลิงก์ไปไว้ที่ main.dart เรียบร้อยแล้ว หน้านี้จึงมีแค่โหลดสินค้าครับ
   }
 
   Future<void> _loadFeaturedProducts() async {

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fl_chart/fl_chart.dart'; // นำเข้าไลบรารีกราฟ
+import 'package:fl_chart/fl_chart.dart';
 import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
-import 'admin_coupon_page.dart'; // นำเข้าหน้าจัดการคูปองฝั่งแอดมิน
+import 'admin_coupon_page.dart';
+import 'admin_video_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -14,13 +15,78 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
+  int _selectedIndex = 0;
+
+  // รายชื่อหน้าที่จะสลับไปตามแท็บด้านล่าง
+  final List<Widget> _adminPages = [
+    const AdminDashboardTab(),
+    const AdminOrdersPage(),
+    const AdminVideoPage(),
+    const AdminChatListPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _adminPages,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF7C3AED),
+        unselectedItemColor: Colors.grey[600],
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: 'ภาพรวม',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'ออเดอร์',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.video_library_outlined),
+            activeIcon: Icon(Icons.video_library),
+            label: 'คอนเทนต์',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_outlined),
+            activeIcon: Icon(Icons.chat),
+            label: 'แชท',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 📊 แท็บที่ 1: หน้าภาพรวม Dashboard & สต็อกสินค้า
+// ==========================================
+class AdminDashboardTab extends StatefulWidget {
+  const AdminDashboardTab({super.key});
+
+  @override
+  State<AdminDashboardTab> createState() => _AdminDashboardTabState();
+}
+
+class _AdminDashboardTabState extends State<AdminDashboardTab> {
   final _supabase = Supabase.instance.client;
 
-  // ตัวแปรสำหรับจัดเก็บหมวดหมู่สินค้าที่เลือกกรอง
   String _selectedCategory = 'ทั้งหมด';
   final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม', 'ของใช้'];
 
-  // ดึงยอดขายและจำนวนออเดอร์ของวันนี้
   Future<Map<String, dynamic>> _fetchTodaySalesAndOrders() async {
     try {
       final now = DateTime.now();
@@ -51,7 +117,6 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ดึงข้อมูลยอดขาย 7 วันล่าสุดสำหรับแสดงกราฟ
   Future<List<double>> _fetchWeeklySales() async {
     try {
       final now = DateTime.now();
@@ -82,7 +147,6 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  // ฟังก์ชันดึงและกรองสินค้าตามชื่อสินค้า
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
     final response = await _supabase.from('products').select();
     List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
@@ -188,6 +252,7 @@ class _AdminPageState extends State<AdminPage> {
     final descController = TextEditingController(text: product?['description'] ?? '');
     final imagesController = TextEditingController(text: product?['image_url'] ?? '');
     String selectedCat = product?['category'] ?? 'เสื้อผ้า';
+    bool isMallChecked = product?['is_mall'] ?? false;
 
     showDialog(
       context: context,
@@ -282,6 +347,18 @@ class _AdminPageState extends State<AdminPage> {
                   icon: const Icon(Icons.add_a_photo),
                   label: const Text('อัปโหลดรูปเพิ่มจากเครื่อง'),
                 ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: const Text('สินค้า Mall / Official'),
+                  subtitle: const Text('แสดงผลในแท็บ Mall พิเศษ'),
+                  value: isMallChecked,
+                  activeColor: const Color(0xFF7C3AED),
+                  onChanged: (bool value) {
+                    setDialogState(() {
+                      isMallChecked = value;
+                    });
+                  },
+                ),
               ],
             ),
           ),
@@ -309,6 +386,7 @@ class _AdminPageState extends State<AdminPage> {
                     'stock': stock,
                     'description': description,
                     'image_url': imageUrls,
+                    'is_mall': isMallChecked,
                   });
                 } else {
                   await _supabase.from('products').update({
@@ -318,6 +396,7 @@ class _AdminPageState extends State<AdminPage> {
                     'stock': stock,
                     'description': description,
                     'image_url': imageUrls,
+                    'is_mall': isMallChecked,
                   }).eq('id', product['id']);
                 }
 
@@ -343,7 +422,6 @@ class _AdminPageState extends State<AdminPage> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          // 🎟️ ปุ่มกดเปิดไปหน้าจัดการโค้ดส่วนลดฝั่งแอดมิน
           IconButton(
             icon: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -353,25 +431,9 @@ class _AdminPageState extends State<AdminPage> {
             tooltip: 'จัดการโค้ดส่วนลด',
           ),
           IconButton(
-            icon: const Icon(Icons.receipt_long, color: Color(0xFF7C3AED)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminOrdersPage()),
-            ),
-            tooltip: 'จัดการออเดอร์และสลิป',
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
             onPressed: () => setState(() {}),
             tooltip: 'รีเฟรชข้อมูล',
-          ),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF7C3AED)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminChatListPage()),
-            ),
-            tooltip: 'แชทกับลูกค้า',
           ),
         ],
       ),
@@ -380,7 +442,6 @@ class _AdminPageState extends State<AdminPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // การ์ดแสดงยอดขายและออเดอร์วันนี้
             FutureBuilder<Map<String, dynamic>>(
               future: _fetchTodaySalesAndOrders(),
               builder: (context, snapshot) {
@@ -435,8 +496,6 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 20),
-
-            // กราฟแท่งแสดงยอดขาย 7 วันล่าสุด
             FutureBuilder<List<double>>(
               future: _fetchWeeklySales(),
               builder: (context, snapshot) {
@@ -516,8 +575,6 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             const SizedBox(height: 24),
-            
-            // หัวข้อและแถบกรองหมวดหมู่สินค้า
             const Text(
               'จัดการสต็อกสินค้า',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
@@ -551,8 +608,6 @@ class _AdminPageState extends State<AdminPage> {
               ),
             ),
             const SizedBox(height: 12),
-
-            // รายการสินค้าตามหมวดหมู่
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchProducts(),
               builder: (context, snapshot) {
@@ -579,6 +634,8 @@ class _AdminPageState extends State<AdminPage> {
                   itemBuilder: (context, index) {
                     final product = products[index];
                     final stock = product['stock'] ?? 0;
+                    final isMall = product['is_mall'] ?? false;
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -612,11 +669,28 @@ class _AdminPageState extends State<AdminPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  product['name'] ?? 'ไม่มีชื่อสินค้า',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                Row(
+                                  children: [
+                                    if (isMall) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('Mall', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        product['name'] ?? 'ไม่มีชื่อสินค้า',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Row(

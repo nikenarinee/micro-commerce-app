@@ -6,8 +6,9 @@ import 'customer_orders_page.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
 import 'cart_service.dart';
-import 'coupon_page.dart'; // นำเข้าหน้าศูนย์รวมคูปองฝั่งลูกค้า
-
+import 'coupon_page.dart';
+import 'mall_page.dart';  // 🛍️ นำเข้าหน้า Mall
+import 'video_page.dart'; // 🎥 นำเข้าหน้าวิดีโอ
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,7 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _supabase = Supabase.instance.client;
-  int _currentIndex = 0; // ตัวแปรเก็บสถานะแท็บปัจจุบัน (0 = หน้าแรก, 1 = คำสั่งซื้อ, 2 = ฉัน)
+  int _currentIndex = 0; // 0 = หน้าแรก, 1 = Mall, 2 = วิดีโอ, 3 = คำสั่งซื้อ, 4 = ฉัน
 
   String _searchQuery = '';
   String _selectedCategory = 'ทั้งหมด';
@@ -57,15 +58,26 @@ class _HomePageState extends State<HomePage> {
     return products;
   }
 
-  // ส่วนแสดงเนื้อหาของแต่ละแท็บ
+  // 🔀 ฟังก์ชันสลับการแสดงผลหน้าตามแท็บด้านล่าง
   Widget _buildBodyContent() {
-    if (_currentIndex == 1) {
-      return const CustomerOrdersPage(); // แท็บที่ 1: หน้าคำสั่งซื้อ
-    } else if (_currentIndex == 2) {
-      return const ProfilePage(); // แท็บที่ 2: หน้าโปรไฟล์ (ฉัน)
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeTabContent(); // แท็บที่ 0: หน้าแรก
+      case 1:
+        return const MallPage();        // แท็บที่ 1: หน้า Mall
+      case 2:
+        return const VideoPage();       // แท็บที่ 2: หน้าวิดีโอรีวิว
+      case 3:
+        return const CustomerOrdersPage(); // แท็บที่ 3: หน้าคำสั่งซื้อ
+      case 4:
+        return const ProfilePage();      // แท็บที่ 4: หน้าโปรไฟล์ (ฉัน)
+      default:
+        return _buildHomeTabContent();
     }
+  }
 
-    // แท็บที่ 0: หน้าหลัก (แสดงสินค้าและ Search Bar ปกติ)
+  // 🏠 เนื้อหาหลักของหน้าแรก (เดิมทั้งหมด)
+  Widget _buildHomeTabContent() {
     return Column(
       children: [
         Container(
@@ -353,11 +365,23 @@ class _HomePageState extends State<HomePage> {
         selectedItemColor: const Color(0xFF7C3AED),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'หน้าแรก',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.storefront_outlined),
+            activeIcon: Icon(Icons.storefront),
+            label: 'Mall',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.ondemand_video_outlined),
+            activeIcon: Icon(Icons.ondemand_video),
+            label: 'วิดีโอ',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
