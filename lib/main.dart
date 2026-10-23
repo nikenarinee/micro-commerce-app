@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/welcome_page.dart'; // เริ่มต้นที่หน้า Welcome เป็นหน้าแรกสุด
-import 'reset_password_page.dart'; // นำเข้าหน้า Reset Password ที่เพิ่งสร้าง
-
+import 'pages/reset_password_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
