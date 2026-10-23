@@ -404,7 +404,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// 🖼️ Widget สำหรับแถบแบนเนอร์สไลด์โปรโมชัน (ดึงข้อมูลจากตาราง banners บน Supabase)
+// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (แก้ระบบโหลดรูปให้รองรับ Supabase Storage)
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -427,7 +427,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _fetchBanners(),
       builder: (context, snapshot) {
-        // หากไม่มีข้อมูลหรือกำลังโหลด ให้ซ่อนไว้อย่างแนบเนียน
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -449,36 +448,61 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   itemCount: banners.length,
                   itemBuilder: (context, index) {
                     final banner = banners[index];
+                    final rawUrl = (banner['image_url'] ?? '').toString();
+                    
+                    // ✂️ แยกเอาเฉพาะ URL รูปแรก และลบช่องว่างออก
+                    final imageUrl = rawUrl.contains(',') 
+                        ? rawUrl.split(',').first.trim() 
+                        : rawUrl.trim();
+
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        image: DecorationImage(
-                          image: NetworkImage(banner['image_url'] ?? ''),
-                          fit: BoxFit.cover,
-                        ),
                         boxShadow: const [
                           BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
                         ],
                       ),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            colors: [Colors.black.withOpacity(0.6), Colors.transparent],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                          ),
-                        ),
-                        alignment: Alignment.bottomLeft,
-                        child: Text(
-                          banner['title'] ?? '',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                          child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                                        ),
+                                      ),
+                                    )
+                                  : Container(color: Colors.grey[300]),
+                            ),
+                            Positioned.fill(
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                                ),
+                                alignment: Alignment.bottomLeft,
+                                child: Text(
+                                  banner['title'] ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
