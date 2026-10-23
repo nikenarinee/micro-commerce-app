@@ -404,7 +404,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (แก้ระบบโหลดรูปให้รองรับ Supabase Storage)
+// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (รองรับปุ่มกดลูกศรซ้าย-ขวา และเลื่อนอัตโนมัติ)
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -416,41 +416,81 @@ class _BannerCarouselState extends State<BannerCarousel> {
   final _supabase = Supabase.instance.client;
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  List<Map<String, dynamic>> _banners = [];
+  bool _isLoading = true;
 
-  Future<List<Map<String, dynamic>>> _fetchBanners() async {
-    final response = await _supabase.from('banners').select().order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(response);
+  @override
+  void initState() {
+    super.initState();
+    _fetchBanners();
+  }
+
+  Future<void> _fetchBanners() async {
+    try {
+      final response = await _supabase.from('banners').select().order('created_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _banners = List<Map<String, dynamic>>.from(response);
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ฟังก์ชันกดเลื่อนไปภาพถัดไป
+  void _nextPage() {
+    if (_banners.isNotEmpty) {
+      int next = (_currentPage + 1) % _banners.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  // ฟังก์ชันกดเลื่อนกลับภาพก่อนหน้า
+  void _prevPage() {
+    if (_banners.isNotEmpty) {
+      int prev = (_currentPage - 1 + _banners.length) % _banners.length;
+      _pageController.animateToPage(
+        prev,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _fetchBanners(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
+    if (_isLoading) {
+      return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
+    }
 
-        final banners = snapshot.data!;
+    if (_banners.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        return Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(
-            children: [
-              SizedBox(
-                height: 130,
-                child: PageView.builder(
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 130,
+            child: Stack(
+              children: [
+                PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) {
                     setState(() => _currentPage = index);
                   },
-                  itemCount: banners.length,
+                  itemCount: _banners.length,
                   itemBuilder: (context, index) {
-                    final banner = banners[index];
+                    final banner = _banners[index];
                     final rawUrl = (banner['image_url'] ?? '').toString();
-                    
-                    // ✂️ แยกเอาเฉพาะ URL รูปแรก และลบช่องว่างออก
                     final imageUrl = rawUrl.contains(',') 
                         ? rawUrl.split(',').first.trim() 
                         : rawUrl.trim();
@@ -508,27 +548,61 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  banners.length,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: _currentPage == index ? 16 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: _currentPage == index ? const Color(0xFF7C3AED) : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(3),
+                // ◀️ ปุ่มกดเลื่อนซ้าย
+                Positioned(
+                  left: 20,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.black.withOpacity(0.3),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white),
+                        onPressed: _prevPage,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                // ▶️ ปุ่มกดเลื่อนขวา
+                Positioned(
+                  right: 20,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.black.withOpacity(0.3),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
+                        onPressed: _nextPage,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _banners.length,
+              (index) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: _currentPage == index ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _currentPage == index ? const Color(0xFF7C3AED) : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
