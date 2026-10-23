@@ -74,138 +74,64 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
-  // ฟังก์ชันลืมรหัสผ่านแบบใช้ OTP 6 หลัก (แก้ปัญหาลิงก์พังและหน้าขาวบนมือถือ)
+  // ฟังก์ชันส่งลิงก์รีเซ็ตรหัสผ่าน
   Future<void> _resetPassword() async {
-    final emailController = TextEditingController(text: _emailController.text.trim());
-    final otpController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    bool isOtpSent = false;
+    final email = _emailController.text.trim();
+    
+    // ถ้ายังไม่ได้พิมพ์อีเมลในหน้าแรก ให้มี Pop-up เด้งขึ้นมาถาม
+    if (email.isEmpty) {
+      String tempEmail = '';
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('รีเซ็ตรหัสผ่าน'),
+          content: TextField(
+            onChanged: (value) => tempEmail = value,
+            decoration: const InputDecoration(hintText: 'กรอกอีเมลของคุณที่นี่'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () => Navigator.pop(context, tempEmail),
+              child: const Text('ส่งลิงก์รีเซ็ต', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ).then((value) async {
+        if (value != null && value.toString().isNotEmpty) {
+          _sendResetEmail(value.toString().trim());
+        }
+      });
+      return;
+    }
 
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('รีเซ็ตรหัสผ่านด้วย OTP'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'อีเมลของคุณ',
-                        hintText: 'name@email.com',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
-                      onPressed: () async {
-                        final email = emailController.text.trim();
-                        if (email.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('กรุณากรอกอีเมลก่อนขอรับรหัส OTP')),
-                          );
-                          return;
-                        }
-                        
-                        try {
-                          await Supabase.instance.client.auth.resetPasswordForEmail(email);
-                          setDialogState(() {
-                            isOtpSent = true;
-                          });
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('ส่งรหัส OTP 6 หลักไปที่อีเมลแล้ว!'), backgroundColor: Colors.green),
-                          );
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
-                          );
-                        }
-                      },
-                      child: Text(isOtpSent ? 'ส่งรหัส OTP อีกครั้ง' : 'ขอรับรหัส OTP', style: const TextStyle(color: Colors.white)),
-                    ),
-                    if (isOtpSent) ...[
-                      const Divider(height: 30),
-                      TextField(
-                        controller: otpController,
-                        decoration: const InputDecoration(
-                          labelText: 'รหัส OTP 6 หลัก',
-                          hintText: '123456',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: newPasswordController,
-                        decoration: const InputDecoration(
-                          labelText: 'รหัสผ่านใหม่',
-                          hintText: '••••••••',
-                        ),
-                        obscureText: true,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
-                ),
-                if (isOtpSent)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
-                    onPressed: () async {
-                      final email = emailController.text.trim();
-                      final otp = otpController.text.trim();
-                      final newPassword = newPasswordController.text.trim();
+    _sendResetEmail(email);
+  }
 
-                      if (otp.isEmpty || newPassword.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('กรุณากรอก OTP และรหัสผ่านใหม่ให้ครบถ้วน')),
-                        );
-                        return;
-                      }
-
-                      try {
-                        // 1. ตรวจสอบรหัส OTP
-                        await Supabase.instance.client.auth.verifyOTP(
-                          email: email,
-                          token: otp,
-                          type: OtpType.recovery,
-                        );
-                        
-                        // 2. อัปเดตรหัสผ่านใหม่
-                        await Supabase.instance.client.auth.updateUser(
-                          UserAttributes(password: newPassword),
-                        );
-
-                        if (!mounted) return;
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่'), backgroundColor: Colors.green),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('รหัส OTP ไม่ถูกต้องหรือหมดอายุ: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    },
-                    child: const Text('ยืนยันเปลี่ยนรหัสผ่าน', style: TextStyle(color: Colors.white)),
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
+  // ตัวส่งอีเมลไปหา Supabase
+  Future<void> _sendResetEmail(String targetEmail) async {
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        targetEmail,
+        redirectTo: 'http://172.20.10.2:3000', // Redirect มาที่ IP คอมพิวเตอร์
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณแล้ว!'), 
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   // ฟังก์ชันเข้าสู่ระบบด้วย Google

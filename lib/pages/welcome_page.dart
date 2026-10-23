@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_page.dart';
 import 'product_detail_page.dart';
+import 'reset_password_page.dart'; // อย่าลืม import หน้าตั้งรหัสผ่านใหม่เข้ามาด้วยนะครับ
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -19,6 +20,40 @@ class _WelcomePageState extends State<WelcomePage> {
   void initState() {
     super.initState();
     _loadFeaturedProducts();
+    _checkPasswordRecoveryLink(); // เพิ่มตัวเช็กลิงก์รีเซ็ตรหัสผ่านตรงนี้
+  }
+
+  // ฟังก์ชันดักจับลิงก์รีเซ็ตรหัสผ่านจากอีเมล
+  void _checkPasswordRecoveryLink() {
+    // 1. ดักฟัง Event ของ Supabase Auth
+    _supabase.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.passwordRecovery) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
+        );
+      }
+    });
+
+    // 2. ดักเช็กพารามิเตอร์ ?code= ใน URL (กรณีเปิดผ่านเว็บ)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('code')) {
+        final code = uri.queryParameters['code']!;
+        try {
+          await _supabase.auth.exchangeCodeForSession(code);
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
+          );
+        } catch (e) {
+          debugPrint('Error exchanging code for session: $e');
+        }
+      }
+    });
   }
 
   Future<void> _loadFeaturedProducts() async {
@@ -43,10 +78,9 @@ class _WelcomePageState extends State<WelcomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Hero Banner ส่วนต้อนรับด้านบน (สไตล์เว็บไซต์โรงแรมหรู)
+            // 1. Hero Banner ส่วนต้อนรับด้านบน
             Stack(
               children: [
-                // รูปภาพพื้นหลัง Banner (สามารถเปลี่ยน URL รูปภาพได้ตามต้องการ)
                 Image.network(
                   'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1200&auto=format&fit=crop',
                   height: 380,
@@ -57,7 +91,6 @@ class _WelcomePageState extends State<WelcomePage> {
                     color: const Color(0xFF7C3AED),
                   ),
                 ),
-                // ชั้นกรองแสงสีดำโปร่งใสเพื่อให้ตัวหนังสืออ่านง่าย
                 Container(
                   height: 380,
                   width: double.infinity,
@@ -72,7 +105,6 @@ class _WelcomePageState extends State<WelcomePage> {
                     ),
                   ),
                 ),
-                // ข้อความบน Banner
                 Positioned(
                   bottom: 30,
                   left: 20,
@@ -137,12 +169,11 @@ class _WelcomePageState extends State<WelcomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween, // แก้ตรงนี้ให้มี space นำหน้า
-  children: [
-    const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ... โค้ดข้างในต่อ
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
                             'FEATURED PRODUCTS',
                             style: TextStyle(
@@ -175,8 +206,6 @@ class _WelcomePageState extends State<WelcomePage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // แสดงสถานะกำลังโหลดหรือแสดง Grid สินค้า
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _featuredProducts.isEmpty
