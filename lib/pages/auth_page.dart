@@ -13,6 +13,7 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   bool _isLoginMode = true;
   bool _isLoading = false;
+  bool _obscurePassword = true; // 👁️ ตัวแปรควบคุมการซ่อน/แสดงรหัสผ่าน
   
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -25,6 +26,14 @@ class _AuthPageState extends State<AuthPage> {
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
+      );
+      return;
+    }
+
+    // 🔒 เช็กความปลอดภัยรหัสผ่าน (ขั้นต่ำ 6 ตัวอักษร) เฉพาะตอนสมัครสมาชิก
+    if (!_isLoginMode && password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษรขึ้นไป')),
       );
       return;
     }
@@ -78,7 +87,6 @@ class _AuthPageState extends State<AuthPage> {
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
     
-    // ถ้ายังไม่ได้พิมพ์อีเมลในหน้าแรก ให้มี Pop-up เด้งขึ้นมาถาม
     if (email.isEmpty) {
       String tempEmail = '';
       await showDialog(
@@ -112,12 +120,11 @@ class _AuthPageState extends State<AuthPage> {
     _sendResetEmail(email);
   }
 
-  // ตัวส่งอีเมลไปหา Supabase
   Future<void> _sendResetEmail(String targetEmail) async {
     try {
       await Supabase.instance.client.auth.resetPasswordForEmail(
         targetEmail,
-        redirectTo: 'http://172.20.10.2:3000', // Redirect มาที่ IP คอมพิวเตอร์
+        redirectTo: 'http://172.20.10.2:3000',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -134,7 +141,6 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
-  // ฟังก์ชันเข้าสู่ระบบด้วย Google
   Future<void> _signInWithGoogle() async {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
@@ -273,15 +279,27 @@ class _AuthPageState extends State<AuthPage> {
                         child: Text('รหัสผ่าน', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                       ),
                       const SizedBox(height: 6),
+                      // 👁️ ช่องรหัสผ่าน พร้อมปุ่มกดดูรหัสผ่าน
                       TextField(
                         controller: _passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          hintText: '••••••••',
+                          hintText: 'อย่างน้อย 6 ตัวอักษรขึ้นไป',
                           filled: true,
                           fillColor: Colors.grey[100],
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED))),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
                         ),
                       ),
                       
