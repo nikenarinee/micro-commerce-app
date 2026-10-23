@@ -76,7 +76,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 🏠 เนื้อหาหลักของหน้าแรก (เดิมทั้งหมด)
+  // 🏠 เนื้อหาหลักของหน้าแรก
   Widget _buildHomeTabContent() {
     return Column(
       children: [
@@ -187,6 +187,11 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+        
+        // 🚀 แถบสไลด์โปรโมชัน (ดึงข้อมูล Dynamic จาก Supabase)
+        const BannerCarousel(),
+
+        const SizedBox(height: 6),
         
         // แถบเลือกหมวดหมู่สินค้า
         Container(
@@ -395,6 +400,111 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 🖼️ Widget สำหรับแถบแบนเนอร์สไลด์โปรโมชัน (ดึงข้อมูลจากตาราง banners บน Supabase)
+class BannerCarousel extends StatefulWidget {
+  const BannerCarousel({super.key});
+
+  @override
+  State<BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _BannerCarouselState extends State<BannerCarousel> {
+  final _supabase = Supabase.instance.client;
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  Future<List<Map<String, dynamic>>> _fetchBanners() async {
+    final response = await _supabase.from('banners').select().order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchBanners(),
+      builder: (context, snapshot) {
+        // หากไม่มีข้อมูลหรือกำลังโหลด ให้ซ่อนไว้อย่างแนบเนียน
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final banners = snapshot.data!;
+
+        return Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 130,
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() => _currentPage = index);
+                  },
+                  itemCount: banners.length,
+                  itemBuilder: (context, index) {
+                    final banner = banners[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        image: DecorationImage(
+                          image: NetworkImage(banner['image_url'] ?? ''),
+                          fit: BoxFit.cover,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+                        ],
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                        alignment: Alignment.bottomLeft,
+                        child: Text(
+                          banner['title'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  banners.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: _currentPage == index ? 16 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _currentPage == index ? const Color(0xFF7C3AED) : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
