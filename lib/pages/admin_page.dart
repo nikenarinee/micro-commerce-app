@@ -6,7 +6,7 @@ import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
 import 'admin_coupon_page.dart';
 import 'admin_video_page.dart';
-import 'admin_banner_page.dart';
+import 'admin_banner_page.dart'; // 🖼️ นำเข้าหน้าจัดการแบนเนอร์โปรโมชัน
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -18,6 +18,7 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
 
+  // รายชื่อหน้าที่จะสลับไปตามแท็บด้านล่าง
   final List<Widget> _adminPages = [
     const AdminDashboardTab(),
     const AdminOrdersPage(),
@@ -62,7 +63,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
           
           // ----------------------------------------------------
-          // 💬 [จุดที่ 1 แก้ไขเพิ่ม]: เมนูแชทแถบล่าง (BottomNavigationBar)
+          // 💬 [จุดที่ 1]: เมนูแชทแถบล่าง (BottomNavigationBar)
           // ใช้ FutureBuilder ดึงข้อมูลจากตาราง messages เพื่อเช็กว่า
           // มีข้อความไหนที่ is_read == false (ยังไม่อ่าน) บ้าง แล้วนำมานับจำนวน
           // แสดงเป็นวงกลมสีแดง (Badge) แจ้งเตือนแอดมินแบบเรียลไทม์
@@ -232,8 +233,8 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
   }
 
   // ----------------------------------------------------
-  // 🥧 [จุดที่ 2 แก้ไขเพิ่ม]: ฟังก์ชันดึงข้อมูลสินค้าจากตาราง products 
-  // เพื่อนำมานับจำนวนแยกตามหมวดหมู่ สำหรับนำไปแสดงผลในกราฟวงกลม
+  // 🥧 [จุดที่ 2]: ฟังก์ชันดึงข้อมูลสินค้าจากตาราง products 
+  // เพื่อนำมานับจำนวนแยกตามหมวดหมู่ สำหรับนำไปแสดงผลในกราฟวงกลม (Pie Chart)
   // ----------------------------------------------------
   Future<Map<String, double>> _fetchCategoryData() async {
     try {
@@ -534,6 +535,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
+          // 🖼️ ปุ่มจัดการแบนเนอร์โปรโมชัน
           IconButton(
             icon: const Icon(Icons.view_carousel, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -542,6 +544,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             ),
             tooltip: 'จัดการแบนเนอร์โปรโมชัน',
           ),
+          // 🎟️ ปุ่มจัดการโค้ดส่วนลด
           IconButton(
             icon: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -550,10 +553,48 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             ),
             tooltip: 'จัดการโค้ดส่วนลด',
           ),
+          // 🔄 ปุ่มรีเฟรชข้อมูล
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
             onPressed: () => setState(() {}),
             tooltip: 'รีเฟรชข้อมูล',
+          ),
+          
+          // ----------------------------------------------------
+          // 🚪 [จุดที่ 3]: ปุ่มออกจากระบบ (Logout)
+          // เมื่อกด จะเคลียร์เซสชันการล็อกอินผ่าน signOut() แต่ข้อมูลบัญชี/สินค้าใน DB ยังอยู่เหมือนเดิม
+          // ----------------------------------------------------
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            tooltip: 'ออกจากระบบ',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('ยืนยันออกจากระบบ'),
+                  content: const Text('คุณต้องการออกจากระบบใช่หรือไม่?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('ยกเลิก'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('ออกจากระบบ'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                // ออกจากระบบผ่าน Supabase Auth
+                await Supabase.instance.client.auth.signOut();
+                if (!mounted) return;
+                // นำทางกลับไปยังหน้าแรกหรือหน้า Login
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              }
+            },
           ),
         ],
       ),
@@ -699,9 +740,8 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             const SizedBox(height: 20),
 
             // ----------------------------------------------------
-            // 🥧 [จุดที่ 3 แก้ไขเพิ่ม]: UI กราฟวงกลม (Pie Chart) 
-            // ใช้เรียกฟังก์ชัน _fetchCategoryData() มาแสดงผลสัดส่วนข้อมูล
-            // พร้อมกำหนดสีแยกตามแต่ละหมวดหมู่สินค้าอย่างชัดเจน
+            // 🥧 [จุดที่ 4]: UI กราฟวงกลม (Pie Chart) 
+            // แสดงสัดส่วนสินค้าในร้านตามหมวดหมู่
             // ----------------------------------------------------
             FutureBuilder<Map<String, double>>(
               future: _fetchCategoryData(),
@@ -713,7 +753,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 final catData = snapshot.data ?? {'เสื้อผ้า': 1, 'รองเท้า': 1, 'เล็บปลอม': 1, 'ของใช้': 1};
                 final double total = catData.values.fold(0, (sum, val) => sum + val);
 
-                // กำหนดสีของแต่ละหมวดหมู่ในกราฟวงกลม
+                // กำหนดสีประจำหมวดหมู่ในกราฟวงกลม
                 final colors = {
                   'เสื้อผ้า': const Color(0xFF3B82F6),
                   'รองเท้า': const Color(0xFFEF4444),
@@ -743,7 +783,6 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                                   sectionsSpace: 2,
                                   centerSpaceRadius: 35,
                                   sections: catData.entries.map((entry) {
-                                    // คำนวณแปลงค่าเป็นเปอร์เซ็นต์ (%)
                                     final percentage = total > 0 ? (entry.value / total * 100).toStringAsFixed(1) : '0';
                                     return PieChartSectionData(
                                       color: colors[entry.key] ?? Colors.grey,
@@ -761,7 +800,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                               ),
                             ),
                             const SizedBox(width: 16),
-                            // ส่วนแสดงคำอธิบายสี (Legend) ด้านข้างกราฟวงกลม
+                            // คำอธิบายสัญลักษณ์สี (Legend) ข้างกราฟ
                             Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
