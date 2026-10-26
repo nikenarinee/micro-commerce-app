@@ -141,19 +141,6 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign-In Error: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -333,35 +320,6 @@ class _AuthPageState extends State<AuthPage> {
                                 ),
                               ),
                             ),
-
-                      if (_isLoginMode) ...[
-                        const SizedBox(height: 24),
-                        const Row(
-                          children: [
-                            Expanded(child: Divider()),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Text('หรือเข้าสู่ระบบผ่าน', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                            ),
-                            Expanded(child: Divider()),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.grey[100],
-                              side: BorderSide.none,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.g_mobiledata, color: Colors.red, size: 28),
-                            label: const Text('เข้าสู่ระบบด้วย Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-                            onPressed: _signInWithGoogle,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
