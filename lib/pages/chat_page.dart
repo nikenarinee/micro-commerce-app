@@ -46,14 +46,19 @@ class _ChatPageState extends State<ChatPage> {
     if (text.isEmpty && imageUrl == null) return;
 
     final user = _supabase.auth.currentUser;
-    // ถ้าส่งจากแอดมิน ให้บันทึก sender_email เป็น admin หรือใช้อีเมลปัจจุบัน
-    final email = user?.email ?? 'anonymous@shop.com';
+    // ถ้าเข้ามาแบบแอดมินคุยกับลูกค้า ให้ระบุ sender_email เป็น admin หรือใช้อีเมลแอดมิน
+    // แต่ถ้าเข้ามาแบบลูกค้าทั่วไป ให้ใช้อีเมลของลูกค้า
+    String email = user?.email ?? 'anonymous@shop.com';
+    if (widget.targetUserEmail != null) {
+      email = 'admin@shop.com'; // กำหนดให้ฝั่งแอดมินส่งในนามแอดมิน
+    }
 
     try {
       await _supabase.from('messages').insert({
         'sender_email': email,
         'text': text.isEmpty ? null : text,
         'image_url': imageUrl,
+        'is_read': false, // ส่งข้อความใหม่ สถานะยังไม่ได้อ่าน
       });
 
       if (textContent == null) {
@@ -120,7 +125,6 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserEmail = _supabase.auth.currentUser?.email ?? '';
     final appBarTitle = widget.targetUserEmail != null 
         ? 'แชทกับ: ${widget.targetUserEmail}' 
         : 'แชทกับร้านค้า';
@@ -166,7 +170,23 @@ class _ChatPageState extends State<ChatPage> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final senderEmail = msg['sender_email'] ?? '';
-                    final isMe = senderEmail == currentUserEmail || (widget.targetUserEmail != null && senderEmail.contains('admin'));
+                    
+                    // ----------------------------------------------------
+                    // ⚙️ [จุดสำคัญ]: เงื่อนไขแยกฝั่งข้อความ (Left/Right)
+                    // ถ้าเปิดในมุมมองแอดมิน (targetUserEmail != null):
+                    // - ข้อความที่แอดมินส่ง (senderEmail มีคำว่า admin) อยู่ "ขวา"
+                    // - ข้อความที่ลูกค้าส่ง มาจากอีเมลลูกค้า อยู่ "ซ้าย"
+                    // ถ้าเปิดในมุมมองลูกค้าทั่วไป:
+                    // - ข้อความที่ลูกค้าส่ง อยู่ "ขวา"
+                    // - ข้อความที่ร้านค้าตอบ อยู่ "ซ้าย"
+                    // ----------------------------------------------------
+                    bool isMe = false;
+                    if (widget.targetUserEmail != null) {
+                      isMe = senderEmail.contains('admin'); // แอดมินอยู่ขวา
+                    } else {
+                      isMe = !senderEmail.contains('admin'); // ลูกค้าอยู่ขวา
+                    }
+
                     final text = msg['text'];
                     final imageUrl = msg['image_url'];
 
@@ -177,6 +197,7 @@ class _ChatPageState extends State<ChatPage> {
                         padding: const EdgeInsets.all(12),
                         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                         decoration: BoxDecoration(
+                          // ฝั่งเราสีม่วงอ่อน ฝั่งคู่สนทนาสีขาว
                           color: isMe ? const Color(0xFFEDE9FE) : Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
