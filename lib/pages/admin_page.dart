@@ -6,7 +6,7 @@ import 'admin_orders_page.dart';
 import 'admin_chat_list_page.dart';
 import 'admin_coupon_page.dart';
 import 'admin_video_page.dart';
-import 'admin_banner_page.dart'; // 🖼️ นำเข้าหน้าจัดการแบนเนอร์โปรโมชัน
+import 'admin_banner_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -18,7 +18,6 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
 
-  // รายชื่อหน้าที่จะสลับไปตามแท็บด้านล่าง
   final List<Widget> _adminPages = [
     const AdminDashboardTab(),
     const AdminOrdersPage(),
@@ -45,25 +44,109 @@ class _AdminPageState extends State<AdminPage> {
         unselectedItemColor: Colors.grey[600],
         selectedFontSize: 12,
         unselectedFontSize: 12,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'ภาพรวม',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long),
             label: 'ออเดอร์',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.video_library_outlined),
             activeIcon: Icon(Icons.video_library),
             label: 'คอนเทนต์',
           ),
+          
+          // ----------------------------------------------------
+          // 💬 [จุดที่ 1 แก้ไขเพิ่ม]: เมนูแชทแถบล่าง (BottomNavigationBar)
+          // ใช้ FutureBuilder ดึงข้อมูลจากตาราง messages เพื่อเช็กว่า
+          // มีข้อความไหนที่ is_read == false (ยังไม่อ่าน) บ้าง แล้วนำมานับจำนวน
+          // แสดงเป็นวงกลมสีแดง (Badge) แจ้งเตือนแอดมินแบบเรียลไทม์
+          // ----------------------------------------------------
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_outlined),
-            activeIcon: Icon(Icons.chat),
+            icon: FutureBuilder<List<Map<String, dynamic>>>(
+              future: Supabase.instance.client
+                  .from('messages')
+                  .select()
+                  .eq('is_read', false), // กรองเฉพาะข้อความที่ยังไม่ได้อ่าน
+              builder: (context, snapshot) {
+                int unreadCount = 0;
+                if (snapshot.hasData) {
+                  unreadCount = snapshot.data!.length; // นับจำนวนข้อความที่ยังไม่อ่าน
+                }
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.chat_outlined),
+                    // ถ้ามีข้อความใหม่ (มากกว่า 0) ให้แสดงวงกลมสีแดงพร้อมตัวเลข
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            activeIcon: FutureBuilder<List<Map<String, dynamic>>>(
+              future: Supabase.instance.client
+                  .from('messages')
+                  .select()
+                  .eq('is_read', false),
+              builder: (context, snapshot) {
+                int unreadCount = 0;
+                if (snapshot.hasData) {
+                  unreadCount = snapshot.data!.length;
+                }
+
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.chat),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
             label: 'แชท',
           ),
         ],
@@ -145,6 +228,34 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       return dailySales;
     } catch (e) {
       return [0, 0, 0, 0, 0, 0, 0];
+    }
+  }
+
+  // ----------------------------------------------------
+  // 🥧 [จุดที่ 2 แก้ไขเพิ่ม]: ฟังก์ชันดึงข้อมูลสินค้าจากตาราง products 
+  // เพื่อนำมานับจำนวนแยกตามหมวดหมู่ สำหรับนำไปแสดงผลในกราฟวงกลม
+  // ----------------------------------------------------
+  Future<Map<String, double>> _fetchCategoryData() async {
+    try {
+      final response = await _supabase.from('products').select('category');
+      Map<String, double> categoryCounts = {
+        'เสื้อผ้า': 0,
+        'รองเท้า': 0,
+        'เล็บปลอม': 0,
+        'ของใช้': 0,
+      };
+
+      for (var item in response) {
+        String cat = item['category'] ?? 'เสื้อผ้า';
+        if (categoryCounts.containsKey(cat)) {
+          categoryCounts[cat] = categoryCounts[cat]! + 1; // นับเพิ่มทีละ 1 ตามหมวดหมู่
+        } else {
+          categoryCounts['ของใช้'] = (categoryCounts['ของใช้'] ?? 0) + 1;
+        }
+      }
+      return categoryCounts;
+    } catch (e) {
+      return {'เสื้อผ้า': 1, 'รองเท้า': 1, 'เล็บปลอม': 1, 'ของใช้': 1};
     }
   }
 
@@ -423,7 +534,6 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          // 🖼️ ปุ่มจัดการแบนเนอร์โปรโมชัน (เพิ่มใหม่ที่นี่)
           IconButton(
             icon: const Icon(Icons.view_carousel, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -432,7 +542,6 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             ),
             tooltip: 'จัดการแบนเนอร์โปรโมชัน',
           ),
-          // 🎟️ ปุ่มจัดการโค้ดส่วนลด
           IconButton(
             icon: const Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
             onPressed: () => Navigator.push(
@@ -441,7 +550,6 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             ),
             tooltip: 'จัดการโค้ดส่วนลด',
           ),
-          // 🔄 ปุ่มรีเฟรชข้อมูล
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF7C3AED)),
             onPressed: () => setState(() {}),
@@ -508,6 +616,8 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
               },
             ),
             const SizedBox(height: 20),
+            
+            // 📊 กราฟแท่งยอดขาย 7 วันล่าสุด
             FutureBuilder<List<double>>(
               future: _fetchWeeklySales(),
               builder: (context, snapshot) {
@@ -586,6 +696,107 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 );
               },
             ),
+            const SizedBox(height: 20),
+
+            // ----------------------------------------------------
+            // 🥧 [จุดที่ 3 แก้ไขเพิ่ม]: UI กราฟวงกลม (Pie Chart) 
+            // ใช้เรียกฟังก์ชัน _fetchCategoryData() มาแสดงผลสัดส่วนข้อมูล
+            // พร้อมกำหนดสีแยกตามแต่ละหมวดหมู่สินค้าอย่างชัดเจน
+            // ----------------------------------------------------
+            FutureBuilder<Map<String, double>>(
+              future: _fetchCategoryData(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                }
+
+                final catData = snapshot.data ?? {'เสื้อผ้า': 1, 'รองเท้า': 1, 'เล็บปลอม': 1, 'ของใช้': 1};
+                final double total = catData.values.fold(0, (sum, val) => sum + val);
+
+                // กำหนดสีของแต่ละหมวดหมู่ในกราฟวงกลม
+                final colors = {
+                  'เสื้อผ้า': const Color(0xFF3B82F6),
+                  'รองเท้า': const Color(0xFFEF4444),
+                  'เล็บปลอม': const Color(0xFFF59E0B),
+                  'ของใช้': const Color(0xFF8B5CF6),
+                };
+
+                return Container(
+                  height: 230,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('สัดส่วนหมวดหมู่สินค้าในร้าน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: PieChart(
+                                PieChartData(
+                                  sectionsSpace: 2,
+                                  centerSpaceRadius: 35,
+                                  sections: catData.entries.map((entry) {
+                                    // คำนวณแปลงค่าเป็นเปอร์เซ็นต์ (%)
+                                    final percentage = total > 0 ? (entry.value / total * 100).toStringAsFixed(1) : '0';
+                                    return PieChartSectionData(
+                                      color: colors[entry.key] ?? Colors.grey,
+                                      value: entry.value == 0 ? 1 : entry.value,
+                                      title: '$percentage%',
+                                      radius: 40,
+                                      titleStyle: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            // ส่วนแสดงคำอธิบายสี (Legend) ด้านข้างกราฟวงกลม
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: catData.keys.map((cat) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: colors[cat],
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$cat (${catData[cat]!.toInt()})',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
             const SizedBox(height: 24),
             const Text(
               'จัดการสต็อกสินค้า',

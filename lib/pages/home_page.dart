@@ -7,8 +7,8 @@ import 'cart_page.dart';
 import 'product_detail_page.dart';
 import 'cart_service.dart';
 import 'coupon_page.dart';
-import 'mall_page.dart';  // 🛍️ นำเข้าหน้า Mall
-import 'video_page.dart'; // 🎥 นำเข้าหน้าวิดีโอ
+import 'mall_page.dart';
+import 'video_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,340 +18,242 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _supabase = Supabase.instance.client;
   int _currentIndex = 0; // 0 = หน้าแรก, 1 = Mall, 2 = วิดีโอ, 3 = คำสั่งซื้อ, 4 = ฉัน
 
   String _searchQuery = '';
   String _selectedCategory = 'ทั้งหมด';
   final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม'];
 
-  Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    var query = _supabase.from('products').select();
-    
-    if (_searchQuery.isNotEmpty) {
-      query = query.ilike('name', '%$_searchQuery%');
-    }
-
-    final response = await query;
-    List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
-
-    if (_selectedCategory != 'ทั้งหมด') {
-      products = products.where((product) {
-        final name = (product['name'] ?? '').toString().toLowerCase();
-
-        if (_selectedCategory == 'เสื้อผ้า' || _selectedCategory == 'เสื้อ') {
-          return name.contains('เสื้อ') || 
-                 name.contains('เดรส') || 
-                 name.contains('ชุด') || 
-                 name.contains('กางเกง') || 
-                 name.contains('กระโปรง');
-        } else if (_selectedCategory == 'รองเท้า') {
-          return name.contains('รองเท้า') || name.contains('ส้นสูง') || name.contains('ผ้าใบ');
-        } else if (_selectedCategory == 'เล็บปลอม') {
-          return name.contains('เล็บ') || name.contains('เล็บปลอม');
-        }
-
-        return name.contains(_selectedCategory.toLowerCase());
-      }).toList();
-    }
-
-    return products;
-  }
-
-  // 🔀 ฟังก์ชันสลับการแสดงผลหน้าตามแท็บด้านล่าง
+  // 🔀 ฟังก์ชันสลับการแสดงผลหน้าตามแท็บด้านล่าง (BottomNavigationBar)
   Widget _buildBodyContent() {
     switch (_currentIndex) {
       case 0:
-        return _buildHomeTabContent(); // แท็บที่ 0: หน้าแรก
+        return _buildHomeTabContent();
       case 1:
-        return const MallPage();        // แท็บที่ 1: หน้า Mall
+        return const MallPage();
       case 2:
-        return const VideoPage();       // แท็บที่ 2: หน้าวิดีโอรีวิว
+        return const VideoPage();
       case 3:
-        return const CustomerOrdersPage(); // แท็บที่ 3: หน้าคำสั่งซื้อ
+        return const CustomerOrdersPage();
       case 4:
-        return const ProfilePage();      // แท็บที่ 4: หน้าโปรไฟล์ (ฉัน)
+        return const ProfilePage();
       default:
         return _buildHomeTabContent();
     }
   }
 
-  // 🏠 เนื้อหาหลักของหน้าแรก
+  // 🏠 เนื้อหาหลักของหน้าแรกแบบ Slivers (เลื่อนแล้วซ่อนแบนเนอร์/ค้นหาอัตโนมัติ)
   Widget _buildHomeTabContent() {
-    return Column(
-      children: [
-        Container(
-          color: const Color(0xFF7C3AED),
-          padding: const EdgeInsets.only(top: 45, left: 16, right: 16, bottom: 16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
+    return NestedScrollView(
+      headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+        return [
+          // 🟣 1. ส่วนแถบค้นหา + ปุ่มตะกร้า + ปุ่มแชท + สไลด์แบนเนอร์
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                Container(
+                  color: const Color(0xFF7C3AED),
+                  padding: const EdgeInsets.only(top: 45, left: 16, right: 16, bottom: 16),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          const Icon(Icons.search, color: Colors.grey),
-                          const SizedBox(width: 8),
                           Expanded(
-                            child: TextField(
-                              onChanged: (value) {
-                                setState(() {
-                                  _searchQuery = value;
-                                });
-                              },
-                              decoration: const InputDecoration(
-                                hintText: 'ค้นหาสินค้า...',
-                                border: InputBorder.none,
-                                isDense: true,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.search, color: Colors.grey),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _searchQuery = value; // อัปเดตคำค้นหาสินค้าแบบเรียลไทม์
+                                        });
+                                      },
+                                      decoration: const InputDecoration(
+                                        hintText: 'ค้นหาสินค้า...',
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          
+                          // ตะกร้าสินค้า (พร้อม Badge แสดงจำนวนสินค้าในตะกร้า)
+                          Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CartPage()),
+                                ).then((_) => setState(() {})),
+                              ),
+                              Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '${CartService().items.length}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          // ----------------------------------------------------
+                          // 💬 [จุดที่เพิ่มใหม่]: ปุ่มแชทฝั่งลูกค้า (Customer Chat)
+                          // ใช้ FutureBuilder ดึงข้อมูลจากตาราง messages เพื่อเช็กข้อความที่ยังไม่ได้อ่าน (is_read == false)
+                          // และแสดงตัวเลขแจ้งเตือนวงกลมสีแดง (Badge)
+                          // ----------------------------------------------------
+                          FutureBuilder<List<Map<String, dynamic>>>(
+                            future: Supabase.instance.client
+                                .from('messages')
+                                .select()
+                                .eq('is_read', false), // กรองเฉพาะข้อความที่ยังไม่อ่าน
+                            builder: (context, snapshot) {
+                              int unreadCount = 0;
+                              if (snapshot.hasData) {
+                                unreadCount = snapshot.data!.length; // นับจำนวนข้อความที่ยังไม่ได้อ่าน
+                              }
+
+                              return Stack(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF67E8F9)),
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const ChatPage()),
+                                    ).then((_) => setState(() {})),
+                                  ),
+                                  // แสดง Badge สีแดงเฉพาะเมื่อมีข้อความที่ยังไม่ได้อ่านมากกว่า 0
+                                  if (unreadCount > 0)
+                                    Positioned(
+                                      right: 6,
+                                      top: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '$unreadCount',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // ตะกร้าสินค้า
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.shopping_cart, color: Colors.white),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const CartPage()),
-                        ).then((_) => setState(() {})),
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
+                      const SizedBox(height: 12),
+                      
+                      // 🎟️ ศูนย์รวมโค้ดส่วนลด
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CouponPage()),
+                          );
+                        },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(
-                            '${CartService().items.length}',
-                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              Row(
+                                children: [
+                                  Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
+                                  SizedBox(width: 8),
+                                  Text('ศูนย์รวมโค้ดส่วนลด (เก็บโค้ด)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
+                                ],
+                              ),
+                              Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF7C3AED)),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  // ปุ่มแชท
-                  IconButton(
-                    icon: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF67E8F9)),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ChatPage()),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // 🎟️ แบนเนอร์กดเข้าไปหน้าศูนย์รวมคูปอง
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CouponPage()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Row(
-                        children: [
-                          Icon(Icons.confirmation_number, color: Color(0xFF7C3AED)),
-                          SizedBox(width: 8),
-                          Text('ศูนย์รวมโค้ดส่วนลด (เก็บโค้ด)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF7C3AED))),
-                        ],
-                      ),
-                      Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF7C3AED)),
-                    ],
-                  ),
                 ),
-              ),
-            ],
+                
+                // 🚀 แบนเนอร์สไลด์โปรโมชัน
+                const BannerCarousel(),
+              ],
+            ),
           ),
-        ),
-        
-        // 🚀 แถบสไลด์โปรโมชัน (ดึงข้อมูล Dynamic จาก Supabase)
-        const BannerCarousel(),
 
-        const SizedBox(height: 6),
-        
-        // แถบเลือกหมวดหมู่สินค้า
-        Container(
-          height: 50,
-          color: Colors.white,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: _categories.length,
-            itemBuilder: (context, index) {
-              final category = _categories[index];
-              final isSelected = _selectedCategory == category;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: ChoiceChip(
-                  label: Text(category),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF7C3AED),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  backgroundColor: Colors.grey[200],
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
+          // 📌 2. แถบหมวดหมู่สินค้า (จะตรึงติดไว้ด้านบนเวลาเลื่อนหน้าจอลง)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverCategoryDelegate(
+              child: Container(
+                color: Colors.grey[100],
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF7C3AED),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        backgroundColor: Colors.white,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategory = category; // กรองหมวดหมู่สินค้า
+                          });
+                        },
+                      ),
+                    );
                   },
                 ),
-              );
-            },
+              ),
+            ),
           ),
-        ),
-
-        Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _fetchProducts(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
-              }
-              final products = snapshot.data;
-              if (products == null || products.isEmpty) {
-                return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้', style: TextStyle(color: Colors.grey)));
-              }
-
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
-                    ).then((_) => setState(() {})),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                              ),
-                              child: product['image_url'] != null && product['image_url'].toString().isNotEmpty
-                                  ? ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                      child: Image.network(
-                                        product['image_url'].toString().split(',').first.trim(),
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
-                                      ),
-                                    )
-                                  : const Center(child: Icon(Icons.shopping_bag, size: 40, color: Colors.grey)),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product['name'] ?? 'ไม่มีชื่อสินค้า',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '฿${product['price']}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF059669),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    InkWell(
-                                      onTap: () {
-                                        CartService().addItem(product);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('เพิ่ม "${product['name']}" ลงตะกร้าแล้ว'),
-                                            duration: const Duration(seconds: 1),
-                                          ),
-                                        );
-                                        setState(() {});
-                                      },
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF7C3AED),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Icon(Icons.add, color: Colors.white, size: 16),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+        ];
+      },
+      // 🛍️ ส่วนแสดงรายการสินค้า GridView
+      body: ProductGridView(
+        searchQuery: _searchQuery,
+        selectedCategory: _selectedCategory,
+      ),
     );
   }
 
@@ -404,7 +306,208 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน (ขยายความสูงรูปให้เห็นชัดเจนยิ่งขึ้น)
+// 📌 Delegate สำหรับตรึงแถบหมวดหมู่ให้อยู่ด้านบนเวลาเลื่อน
+class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  _SliverCategoryDelegate({required this.child});
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  double get maxExtent => 50.0;
+
+  @override
+  double get minExtent => 50.0;
+
+  @override
+  bool shouldRebuild(covariant _SliverCategoryDelegate oldDelegate) {
+    return false;
+  }
+}
+
+// 🛍️ Widget สำหรับดึงและแสดงรายการสินค้า GridView จาก Supabase
+class ProductGridView extends StatefulWidget {
+  final String searchQuery;
+  final String selectedCategory;
+
+  const ProductGridView({
+    super.key,
+    required this.searchQuery,
+    required this.selectedCategory,
+  });
+
+  @override
+  State<ProductGridView> createState() => _ProductGridViewState();
+}
+
+class _ProductGridViewState extends State<ProductGridView> {
+  final _supabase = Supabase.instance.client;
+
+  Future<List<Map<String, dynamic>>> _fetchProducts() async {
+    var query = _supabase.from('products').select();
+    
+    if (widget.searchQuery.isNotEmpty) {
+      query = query.ilike('name', '%${widget.searchQuery}%');
+    }
+
+    final response = await query;
+    List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
+    if (widget.selectedCategory != 'ทั้งหมด') {
+      products = products.where((product) {
+        final name = (product['name'] ?? '').toString().toLowerCase();
+
+        if (widget.selectedCategory == 'เสื้อผ้า' || widget.selectedCategory == 'เสื้อ') {
+          return name.contains('เสื้อ') || 
+                 name.contains('เดรส') || 
+                 name.contains('ชุด') || 
+                 name.contains('กางเกง') || 
+                 name.contains('กระโปรง');
+        } else if (widget.selectedCategory == 'รองเท้า') {
+          return name.contains('รองเท้า') || name.contains('ส้นสูง') || name.contains('ผ้าใบ');
+        } else if (widget.selectedCategory == 'เล็บปลอม') {
+          return name.contains('เล็บ') || name.contains('เล็บปลอม');
+        }
+
+        return name.contains(widget.selectedCategory.toLowerCase());
+      }).toList();
+    }
+
+    return products;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
+        }
+        final products = snapshot.data;
+        if (products == null || products.isEmpty) {
+          return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้', style: TextStyle(color: Colors.grey)));
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            return InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+              ).then((_) => setState(() {})),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        ),
+                        child: product['image_url'] != null && product['image_url'].toString().isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                child: Image.network(
+                                  product['image_url'].toString().split(',').first.trim(),
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
+                                ),
+                              )
+                            : const Center(child: Icon(Icons.shopping_bag, size: 40, color: Colors.grey)),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product['name'] ?? 'ไม่มีชื่อสินค้า',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '฿${product['price']}',
+                                style: const TextStyle(
+                                  color: Color(0xFF059669),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  CartService().addItem(product);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('เพิ่ม "${product['name']}" ลงตะกร้าแล้ว'),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                  setState(() {});
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.add, color: Colors.white, size: 16),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -477,7 +580,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
       child: Column(
         children: [
           SizedBox(
-            height: 180, // 📐 ปรับขยายความสูงจาก 130 เป็น 180 ให้เห็นรูปเต็มๆ ชัดเจนขึ้น
+            height: 180,
             child: Stack(
               children: [
                 PageView.builder(
@@ -546,7 +649,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     );
                   },
                 ),
-                // ◀️ ปุ่มกดเลื่อนซ้าย
+                // ◀️ ปุ่มกดเลื่อนซ้ายแบนเนอร์
                 Positioned(
                   left: 24,
                   top: 0,
@@ -563,7 +666,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     ),
                   ),
                 ),
-                // ▶️ ปุ่มกดเลื่อนขวา
+                // ▶️ ปุ่มกดเลื่อนขวาแบนเนอร์
                 Positioned(
                   right: 24,
                   top: 0,

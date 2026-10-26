@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'welcome_page.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
@@ -9,113 +10,89 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  // 1. ฟังก์ชันส่ง OTP ไปที่อีเมล
-  Future<void> _sendOtp() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกอีเมลของคุณ')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(email);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งรหัส OTP ไปที่อีเมลแล้ว กรุณาตรวจสอบกล่องข้อความ')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // 2. ฟังก์ชันยืนยัน OTP และเปลี่ยนรหัสผ่านใหม่
-  Future<void> _verifyAndResetPassword() async {
-    final email = _emailController.text.trim();
-    final otp = _otpController.text.trim();
+  // ฟังก์ชันอัปเดตรหัสผ่านใหม่ (เนื่องจากเปิดมาผ่านลิงก์อีเมล ระบบมี Session รออยู่แล้ว)
+  Future<void> _updatePassword() async {
     final newPassword = _passwordController.text.trim();
 
-    if (email.isEmpty || otp.isEmpty || newPassword.isEmpty) {
+    if (newPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบทุกช่อง')),
+        const SnackBar(content: Text('กรุณากรอกรหัสผ่านใหม่')),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      // ตรวจสอบความถูกต้องของ OTP
-      await Supabase.instance.client.auth.verifyOTP(
-        email: email,
-        token: otp,
-        type: OtpType.recovery,
-      );
-
-      // อัปเดตรหัสผ่านใหม่
+      // อัปเดตรหัสผ่านใหม่ผ่าน Supabase Auth
       await Supabase.instance.client.auth.updateUser(
         UserAttributes(password: newPassword),
       );
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่')),
       );
 
-      // กลับไปหน้าแรกหรือหน้า Login
-      Navigator.pop(context);
+      // พาผู้ใช้กลับไปหน้า WelcomePage หรือหน้า Login
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomePage()),
+        (route) => false,
+      );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('รหัส OTP ไม่ถูกต้องหรือหมดอายุ: $e')),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('รีเซ็ตรหัสผ่านด้วย OTP')),
+      appBar: AppBar(
+        title: const Text('กำหนดรหัสผ่านใหม่'),
+        automaticallyImplyLeading: false, // ป้องกันการกด Back ย้อนกลับไปหน้าผิดปกติ
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'อีเมลของคุณ'),
-              keyboardType: TextInputType.emailAddress,
+            const Text(
+              'กรุณากรอกรหัสผ่านใหม่ที่คุณต้องการใช้งาน',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _sendOtp,
-              child: const Text('ขอรับรหัส OTP'),
-            ),
-            const Divider(height: 40),
-            TextField(
-              controller: _otpController,
-              decoration: const InputDecoration(labelText: 'กรอกรหัส OTP 6 หลัก'),
-              keyboardType: TextInputType.number,
-            ),
+            const SizedBox(height: 24),
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'รหัสผ่านใหม่'),
+              decoration: const InputDecoration(
+                labelText: 'รหัสผ่านใหม่',
+                border: OutlineInputBorder(),
+              ),
               obscureText: true,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _isLoading
-                ? const CircularProgressIndicator()
+                ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton(
-                    onPressed: _verifyAndResetPassword,
-                    child: const Text('ยืนยันเปลี่ยนรหัสผ่าน'),
+                    onPressed: _updatePassword,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      'บันทึกรหัสผ่านใหม่',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
           ],
         ),

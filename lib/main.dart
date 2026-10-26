@@ -11,26 +11,46 @@ Future<void> main() async {
     anonKey: 'sb_publishable_gNs_ghACESZiAuJeQfoOzA_wwXgZAFu',
   );
 
-  // เช็กตั้งแต่ตอนเปิดแอปเลยว่ามี code รีเซ็ตรหัสผ่านติดมาใน URL หรือไม่
+  // 🔍 ตรวจสอบ token หรือ code จาก URL ทั้งแบบ Query Parameters และ Hash Fragment (#)
   final uri = Uri.base;
+  bool hasRecoveryToken = false;
+
+  // 1. เช็กแบบ query parameters ทั่วไป (?code=...)
   String? code = uri.queryParameters['code'];
+
+  // 2. ถ้าไม่เจอใน query ให้ลองเช็กใน hash fragment (#...) ที่ Supabase มักจะส่งมา
   if (code == null && uri.hasFragment) {
-    final fragmentUri = Uri.parse(uri.fragment);
-    code = fragmentUri.queryParameters['code'];
+    final fragment = uri.fragment;
+    final Map<String, String> fragmentParams = Uri.splitQueryString(fragment);
+    
+    code = fragmentParams['code'];
+
+    // เผื่อกรณีส่งมาเป็น access_token หรือ type=recovery ตรงๆ
+    if (code == null && (fragment.contains('type=recovery') || fragment.contains('access_token'))) {
+      hasRecoveryToken = true;
+      try {
+        final accessToken = fragmentParams['access_token'];
+        final refreshToken = fragmentParams['refresh_token'];
+        if (accessToken != null) {
+          await Supabase.instance.client.auth.setSession(accessToken);
+        }
+      } catch (e) {
+        debugPrint('Error setting session from fragment: $e');
+      }
+    }
   }
 
-  // ถ้ามี code ให้ทำการแลก Session รอไว้เลย
-  bool hasRecoveryCode = false;
+  // ถ้ามี code ให้นำไปแลก Session (Exchange Code for Session)
   if (code != null) {
     try {
       await Supabase.instance.client.auth.exchangeCodeForSession(code);
-      hasRecoveryCode = true;
+      hasRecoveryToken = true;
     } catch (e) {
       debugPrint('Error exchanging code: $e');
     }
   }
 
-  runApp(MyApp(isPasswordRecovery: hasRecoveryCode));
+  runApp(MyApp(isPasswordRecovery: hasRecoveryToken));
 }
 
 class MyApp extends StatelessWidget {
@@ -41,7 +61,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Micro Commerce',
-      // ถ้ามีโค้ดรีเซ็ต ให้เปิดหน้า ResetPasswordPage ทันทีตั้งแต่หน้าแรก (ตัดปัญหาจอขาว)
+      // ถ้าตรวจพบสถานะรีเซ็ตรหัสผ่าน ให้เปิดหน้า ResetPasswordPage ทันที (ป้องกันหน้าจอว่างเปล่า)
       home: isPasswordRecovery ? const ResetPasswordPage() : const WelcomePage(),
       debugShowCheckedModeBanner: false,
     );
