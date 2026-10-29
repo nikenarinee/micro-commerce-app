@@ -24,6 +24,9 @@ class _HomePageState extends State<HomePage> {
   String _selectedCategory = 'ทั้งหมด';
   final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม'];
 
+  // 🏷️ [เพิ่มใหม่]: ตัวแปรเก็บสถานะการเรียงลำดับราคา ('none' = ปกติ, 'low_to_high' = น้อยไปมาก, 'high_to_low' = มากไปน้อย)
+  String _selectedPriceSort = 'none';
+
   // 🔀 ฟังก์ชันสลับการแสดงผลหน้าตามแท็บด้านล่าง (BottomNavigationBar)
   Widget _buildBodyContent() {
     switch (_currentIndex) {
@@ -117,20 +120,16 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
                           
-                          // ----------------------------------------------------
-                          // 💬 [จุดที่เพิ่มใหม่]: ปุ่มแชทฝั่งลูกค้า (Customer Chat)
-                          // ใช้ FutureBuilder ดึงข้อมูลจากตาราง messages เพื่อเช็กข้อความที่ยังไม่ได้อ่าน (is_read == false)
-                          // และแสดงตัวเลขแจ้งเตือนวงกลมสีแดง (Badge)
-                          // ----------------------------------------------------
+                          // 💬 ปุ่มแชทฝั่งลูกค้า (Customer Chat)
                           FutureBuilder<List<Map<String, dynamic>>>(
                             future: Supabase.instance.client
                                 .from('messages')
                                 .select()
-                                .eq('is_read', false), // กรองเฉพาะข้อความที่ยังไม่อ่าน
+                                .eq('is_read', false),
                             builder: (context, snapshot) {
                               int unreadCount = 0;
                               if (snapshot.hasData) {
-                                unreadCount = snapshot.data!.length; // นับจำนวนข้อความที่ยังไม่ได้อ่าน
+                                unreadCount = snapshot.data!.length;
                               }
 
                               return Stack(
@@ -142,7 +141,6 @@ class _HomePageState extends State<HomePage> {
                                       MaterialPageRoute(builder: (_) => const ChatPage()),
                                     ).then((_) => setState(() {})),
                                   ),
-                                  // แสดง Badge สีแดงเฉพาะเมื่อมีข้อความที่ยังไม่ได้อ่านมากกว่า 0
                                   if (unreadCount > 0)
                                     Positioned(
                                       right: 6,
@@ -210,39 +208,99 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // 📌 2. แถบหมวดหมู่สินค้า (จะตรึงติดไว้ด้านบนเวลาเลื่อนหน้าจอลง)
+          // 📌 2. แถบหมวดหมู่สินค้าและปุ่มกรองราคา (ตรึงติดไว้ด้านบนเวลาเลื่อน)
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverCategoryDelegate(
               child: Container(
                 color: Colors.grey[100],
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: ListView.builder(
+                child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected = _selectedCategory == category;
-                    return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  children: [
+                    // --- รายการหมวดหมู่ ---
+                    ..._categories.map((category) {
+                      final isSelected = _selectedCategory == category;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFF7C3AED),
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          backgroundColor: Colors.white,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
+                          },
+                        ),
+                      );
+                    }),
+
+                    const SizedBox(width: 4),
+                    const VerticalDivider(color: Colors.grey, indent: 8, endIndent: 8),
+                    const SizedBox(width: 4),
+
+                    // --- [เพิ่มใหม่]: ปุ่มกรองราคา: น้อยไปมาก ---
+                    Padding(
                       padding: const EdgeInsets.only(right: 8.0),
-                      child: ChoiceChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFF7C3AED),
+                      child: FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text('ถูกสุด'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_upward, size: 14),
+                          ],
+                        ),
+                        selected: _selectedPriceSort == 'low_to_high',
+                        selectedColor: const Color(0xFF7C3AED).withOpacity(0.2),
+                        checkmarkColor: const Color(0xFF7C3AED),
+                        backgroundColor: Colors.white,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: _selectedPriceSort == 'low_to_high' ? const Color(0xFF7C3AED) : Colors.black87,
                           fontWeight: FontWeight.bold,
                         ),
-                        backgroundColor: Colors.white,
                         onSelected: (selected) {
                           setState(() {
-                            _selectedCategory = category; // กรองหมวดหมู่สินค้า
+                            _selectedPriceSort = selected ? 'low_to_high' : 'none';
                           });
                         },
                       ),
-                    );
-                  },
+                    ),
+
+                    // --- [เพิ่มใหม่]: ปุ่มกรองราคา: มากไปน้อย ---
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text('แพงสุด'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_downward, size: 14),
+                          ],
+                        ),
+                        selected: _selectedPriceSort == 'high_to_low',
+                        selectedColor: const Color(0xFF7C3AED).withOpacity(0.2),
+                        checkmarkColor: const Color(0xFF7C3AED),
+                        backgroundColor: Colors.white,
+                        labelStyle: TextStyle(
+                          color: _selectedPriceSort == 'high_to_low' ? const Color(0xFF7C3AED) : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedPriceSort = selected ? 'high_to_low' : 'none';
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -253,6 +311,7 @@ class _HomePageState extends State<HomePage> {
       body: ProductGridView(
         searchQuery: _searchQuery,
         selectedCategory: _selectedCategory,
+        priceSort: _selectedPriceSort,
       ),
     );
   }
@@ -328,15 +387,17 @@ class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-// 🛍️ Widget สำหรับดึงและแสดงรายการสินค้า GridView จาก Supabase
+// 🛍️ Widget สำหรับดึงและแสดงรายการสินค้า GridView จาก Supabase (พร้อมรองรับการกรองราคา)
 class ProductGridView extends StatefulWidget {
   final String searchQuery;
   final String selectedCategory;
+  final String priceSort;
 
   const ProductGridView({
     super.key,
     required this.searchQuery,
     required this.selectedCategory,
+    required this.priceSort,
   });
 
   @override
@@ -356,6 +417,7 @@ class _ProductGridViewState extends State<ProductGridView> {
     final response = await query;
     List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
 
+    // 1. กรองตามหมวดหมู่
     if (widget.selectedCategory != 'ทั้งหมด') {
       products = products.where((product) {
         final name = (product['name'] ?? '').toString().toLowerCase();
@@ -374,6 +436,13 @@ class _ProductGridViewState extends State<ProductGridView> {
 
         return name.contains(widget.selectedCategory.toLowerCase());
       }).toList();
+    }
+
+    // 2. [เพิ่มใหม่]: จัดเรียงตามราคา (Price Sorting)
+    if (widget.priceSort == 'low_to_high') {
+      products.sort((a, b) => ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num));
+    } else if (widget.priceSort == 'high_to_low') {
+      products.sort((a, b) => ((b['price'] ?? 0) as num).compareTo((a['price'] ?? 0) as num));
     }
 
     return products;
@@ -649,7 +718,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     );
                   },
                 ),
-                // ◀️ ปุ่มกดเลื่อนซ้ายแบนเนอร์
                 Positioned(
                   left: 24,
                   top: 0,
@@ -666,7 +734,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     ),
                   ),
                 ),
-                // ▶️ ปุ่มกดเลื่อนขวาแบนเนอร์
                 Positioned(
                   right: 24,
                   top: 0,
