@@ -18,16 +18,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0; // 0 = หน้าแรก, 1 = Mall, 2 = วิดีโอ, 3 = คำสั่งซื้อ, 4 = ฉัน
+  int _currentIndex = 0;
 
   String _searchQuery = '';
   String _selectedCategory = 'ทั้งหมด';
   final List<String> _categories = ['ทั้งหมด', 'เสื้อผ้า', 'รองเท้า', 'เล็บปลอม'];
 
-  // 🏷️ [เพิ่มใหม่]: ตัวแปรเก็บสถานะการเรียงลำดับราคา ('none' = ปกติ, 'low_to_high' = น้อยไปมาก, 'high_to_low' = มากไปน้อย)
   String _selectedPriceSort = 'none';
+  double? _minPrice;
+  double? _maxPrice;
 
-  // 🔀 ฟังก์ชันสลับการแสดงผลหน้าตามแท็บด้านล่าง (BottomNavigationBar)
   Widget _buildBodyContent() {
     switch (_currentIndex) {
       case 0:
@@ -45,12 +45,75 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 🏠 เนื้อหาหลักของหน้าแรกแบบ Slivers (เลื่อนแล้วซ่อนแบนเนอร์/ค้นหาอัตโนมัติ)
+  void _showPriceRangeDialog() {
+    final TextEditingController minController = TextEditingController(
+      text: _minPrice != null ? _minPrice.toString() : '',
+    );
+    final TextEditingController maxController = TextEditingController(
+      text: _maxPrice != null ? _maxPrice.toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('กรอกช่วงราคา (บาท)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'ราคาต่ำสุด',
+                  border: OutlineInputBorder(),
+                  prefixText: '฿ ',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: maxController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'ราคาสูงสุด',
+                  border: OutlineInputBorder(),
+                  prefixText: '฿ ',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _minPrice = null;
+                  _maxPrice = null;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('ล้างค่า', style: TextStyle(color: Colors.red)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () {
+                setState(() {
+                  _minPrice = double.tryParse(minController.text);
+                  _maxPrice = double.tryParse(maxController.text);
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('ตกลง', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildHomeTabContent() {
     return NestedScrollView(
       headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
         return [
-          // 🟣 1. ส่วนแถบค้นหา + ปุ่มตะกร้า + ปุ่มแชท + สไลด์แบนเนอร์
           SliverToBoxAdapter(
             child: Column(
               children: [
@@ -76,7 +139,7 @@ class _HomePageState extends State<HomePage> {
                                     child: TextField(
                                       onChanged: (value) {
                                         setState(() {
-                                          _searchQuery = value; // อัปเดตคำค้นหาสินค้าแบบเรียลไทม์
+                                          _searchQuery = value;
                                         });
                                       },
                                       decoration: const InputDecoration(
@@ -91,8 +154,6 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          
-                          // ตะกร้าสินค้า (พร้อม Badge แสดงจำนวนสินค้าในตะกร้า)
                           Stack(
                             children: [
                               IconButton(
@@ -119,8 +180,6 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          
-                          // 💬 ปุ่มแชทฝั่งลูกค้า (Customer Chat)
                           FutureBuilder<List<Map<String, dynamic>>>(
                             future: Supabase.instance.client
                                 .from('messages')
@@ -168,8 +227,6 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
-                      // 🎟️ ศูนย์รวมโค้ดส่วนลด
                       InkWell(
                         onTap: () {
                           Navigator.push(
@@ -201,14 +258,10 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                
-                // 🚀 แบนเนอร์สไลด์โปรโมชัน
                 const BannerCarousel(),
               ],
             ),
           ),
-
-          // 📌 2. แถบหมวดหมู่สินค้าและปุ่มกรองราคา (ตรึงติดไว้ด้านบนเวลาเลื่อน)
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverCategoryDelegate(
@@ -218,7 +271,6 @@ class _HomePageState extends State<HomePage> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   children: [
-                    // --- รายการหมวดหมู่ ---
                     ..._categories.map((category) {
                       final isSelected = _selectedCategory == category;
                       return Padding(
@@ -240,64 +292,100 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     }),
-
                     const SizedBox(width: 4),
                     const VerticalDivider(color: Colors.grey, indent: 8, endIndent: 8),
                     const SizedBox(width: 4),
-
-                    // --- [เพิ่มใหม่]: ปุ่มกรองราคา: น้อยไปมาก ---
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: FilterChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text('ถูกสุด'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_upward, size: 14),
-                          ],
-                        ),
-                        selected: _selectedPriceSort == 'low_to_high',
-                        selectedColor: const Color(0xFF7C3AED).withOpacity(0.2),
-                        checkmarkColor: const Color(0xFF7C3AED),
-                        backgroundColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: _selectedPriceSort == 'low_to_high' ? const Color(0xFF7C3AED) : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedPriceSort = selected ? 'low_to_high' : 'none';
-                          });
+                    Container(
+                      height: 40,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'custom_price') {
+                            _showPriceRangeDialog();
+                          } else {
+                            setState(() {
+                              _selectedPriceSort = value;
+                            });
+                          }
                         },
-                      ),
-                    ),
-
-                    // --- [เพิ่มใหม่]: ปุ่มกรองราคา: มากไปน้อย ---
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: FilterChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text('แพงสุด'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_downward, size: 14),
-                          ],
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'none',
+                            child: Row(
+                              children: [
+                                Icon(Icons.sort, size: 18, color: Colors.grey),
+                                SizedBox(width: 8),
+                                Text('ค่าเริ่มต้น (ปกติ)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'low_to_high',
+                            child: Row(
+                              children: [
+                                Icon(Icons.arrow_upward, size: 18, color: Color(0xFF7C3AED)),
+                                SizedBox(width: 8),
+                                Text('ราคา: ถูกสุดไปแพงสุด'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'high_to_low',
+                            child: Row(
+                              children: [
+                                Icon(Icons.arrow_downward, size: 18, color: Color(0xFF7C3AED)),
+                                SizedBox(width: 8),
+                                Text('ราคา: แพงสุดไปถูกสุด'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: 'custom_price',
+                            child: Row(
+                              children: [
+                                Icon(Icons.tune, size: 18, color: Colors.green),
+                                SizedBox(width: 8),
+                                Text('ระบุช่วงราคา (ต่ำสุด - สูงสุด)'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        child: Chip(
+                          backgroundColor: (_selectedPriceSort != 'none' || _minPrice != null || _maxPrice != null)
+                              ? const Color(0xFF7C3AED).withOpacity(0.2)
+                              : Colors.white,
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.filter_list,
+                                size: 16,
+                                color: (_selectedPriceSort != 'none' || _minPrice != null || _maxPrice != null)
+                                    ? const Color(0xFF7C3AED)
+                                    : Colors.black87,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _minPrice != null || _maxPrice != null
+                                    ? 'ราคา: ฿${_minPrice ?? 0} - ${_maxPrice ?? '∞'}'
+                                    : _selectedPriceSort == 'low_to_high'
+                                        ? 'ถูกสุด'
+                                        : _selectedPriceSort == 'high_to_low'
+                                            ? 'แพงสุด'
+                                            : 'จัดเรียงราคา',
+                                style: TextStyle(
+                                  color: (_selectedPriceSort != 'none' || _minPrice != null || _maxPrice != null)
+                                      ? const Color(0xFF7C3AED)
+                                      : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_drop_down, size: 18),
+                            ],
+                          ),
                         ),
-                        selected: _selectedPriceSort == 'high_to_low',
-                        selectedColor: const Color(0xFF7C3AED).withOpacity(0.2),
-                        checkmarkColor: const Color(0xFF7C3AED),
-                        backgroundColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: _selectedPriceSort == 'high_to_low' ? const Color(0xFF7C3AED) : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedPriceSort = selected ? 'high_to_low' : 'none';
-                          });
-                        },
                       ),
                     ),
                   ],
@@ -307,11 +395,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ];
       },
-      // 🛍️ ส่วนแสดงรายการสินค้า GridView
       body: ProductGridView(
         searchQuery: _searchQuery,
         selectedCategory: _selectedCategory,
         priceSort: _selectedPriceSort,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
       ),
     );
   }
@@ -334,46 +423,23 @@ class _HomePageState extends State<HomePage> {
         selectedFontSize: 11,
         unselectedFontSize: 11,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'หน้าแรก',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storefront_outlined),
-            activeIcon: Icon(Icons.storefront),
-            label: 'Mall',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.ondemand_video_outlined),
-            activeIcon: Icon(Icons.ondemand_video),
-            label: 'วิดีโอ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'คำสั่งซื้อ',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'ฉัน',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'หน้าแรก'),
+          BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), activeIcon: Icon(Icons.storefront), label: 'Mall'),
+          BottomNavigationBarItem(icon: Icon(Icons.ondemand_video_outlined), activeIcon: Icon(Icons.ondemand_video), label: 'วิดีโอ'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'คำสั่งซื้อ'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'ฉัน'),
         ],
       ),
     );
   }
 }
 
-// 📌 Delegate สำหรับตรึงแถบหมวดหมู่ให้อยู่ด้านบนเวลาเลื่อน
 class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   _SliverCategoryDelegate({required this.child});
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
-  }
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => child;
 
   @override
   double get maxExtent => 50.0;
@@ -382,22 +448,23 @@ class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
   double get minExtent => 50.0;
 
   @override
-  bool shouldRebuild(covariant _SliverCategoryDelegate oldDelegate) {
-    return false;
-  }
+  bool shouldRebuild(covariant _SliverCategoryDelegate oldDelegate) => false;
 }
 
-// 🛍️ Widget สำหรับดึงและแสดงรายการสินค้า GridView จาก Supabase (พร้อมรองรับการกรองราคา)
 class ProductGridView extends StatefulWidget {
   final String searchQuery;
   final String selectedCategory;
   final String priceSort;
+  final double? minPrice;
+  final double? maxPrice;
 
   const ProductGridView({
     super.key,
     required this.searchQuery,
     required this.selectedCategory,
     required this.priceSort,
+    this.minPrice,
+    this.maxPrice,
   });
 
   @override
@@ -417,17 +484,12 @@ class _ProductGridViewState extends State<ProductGridView> {
     final response = await query;
     List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
 
-    // 1. กรองตามหมวดหมู่
     if (widget.selectedCategory != 'ทั้งหมด') {
       products = products.where((product) {
         final name = (product['name'] ?? '').toString().toLowerCase();
 
         if (widget.selectedCategory == 'เสื้อผ้า' || widget.selectedCategory == 'เสื้อ') {
-          return name.contains('เสื้อ') || 
-                 name.contains('เดรส') || 
-                 name.contains('ชุด') || 
-                 name.contains('กางเกง') || 
-                 name.contains('กระโปรง');
+          return name.contains('เสื้อ') || name.contains('เดรส') || name.contains('ชุด') || name.contains('กางเกง') || name.contains('กระโปรง');
         } else if (widget.selectedCategory == 'รองเท้า') {
           return name.contains('รองเท้า') || name.contains('ส้นสูง') || name.contains('ผ้าใบ');
         } else if (widget.selectedCategory == 'เล็บปลอม') {
@@ -438,7 +500,13 @@ class _ProductGridViewState extends State<ProductGridView> {
       }).toList();
     }
 
-    // 2. [เพิ่มใหม่]: จัดเรียงตามราคา (Price Sorting)
+    if (widget.minPrice != null) {
+      products = products.where((p) => ((p['price'] ?? 0) as num).toDouble() >= widget.minPrice!).toList();
+    }
+    if (widget.maxPrice != null) {
+      products = products.where((p) => ((p['price'] ?? 0) as num).toDouble() <= widget.maxPrice!).toList();
+    }
+
     if (widget.priceSort == 'low_to_high') {
       products.sort((a, b) => ((a['price'] ?? 0) as num).compareTo((b['price'] ?? 0) as num));
     } else if (widget.priceSort == 'high_to_low') {
@@ -461,7 +529,7 @@ class _ProductGridViewState extends State<ProductGridView> {
         }
         final products = snapshot.data;
         if (products == null || products.isEmpty) {
-          return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้', style: TextStyle(color: Colors.grey)));
+          return const Center(child: Text('ไม่พบสินค้าในช่วงราคานี้', style: TextStyle(color: Colors.grey)));
         }
 
         return GridView.builder(
@@ -486,11 +554,7 @@ class _ProductGridViewState extends State<ProductGridView> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
+                    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 4)),
                   ],
                 ),
                 child: Column(
@@ -576,7 +640,6 @@ class _ProductGridViewState extends State<ProductGridView> {
   }
 }
 
-// 🖼️ Widget แบนเนอร์สไลด์โปรโมชัน
 class BannerCarousel extends StatefulWidget {
   const BannerCarousel({super.key});
 
@@ -614,22 +677,14 @@ class _BannerCarouselState extends State<BannerCarousel> {
   void _nextPage() {
     if (_banners.isNotEmpty) {
       int next = (_currentPage + 1) % _banners.length;
-      _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      _pageController.animateToPage(next, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
 
   void _prevPage() {
     if (_banners.isNotEmpty) {
       int prev = (_currentPage - 1 + _banners.length) % _banners.length;
-      _pageController.animateToPage(
-        prev,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      _pageController.animateToPage(prev, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
 
@@ -661,17 +716,13 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   itemBuilder: (context, index) {
                     final banner = _banners[index];
                     final rawUrl = (banner['image_url'] ?? '').toString();
-                    final imageUrl = rawUrl.contains(',') 
-                        ? rawUrl.split(',').first.trim() 
-                        : rawUrl.trim();
+                    final imageUrl = rawUrl.contains(',') ? rawUrl.split(',').first.trim() : rawUrl.trim();
 
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-                        ],
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
